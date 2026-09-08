@@ -159,6 +159,7 @@ public partial class MainViewModel : ViewModelBase
     public event Action? RequestOpenMediaInfo;
     public event Action? RequestOpenStreaming;
     public event Action<string>? RequestNavigateWebStream;
+    public event Action? RequestStopWebStream;
 
     public MainViewModel(
         ILogger<MainViewModel> logger,
@@ -807,6 +808,7 @@ public partial class MainViewModel : ViewModelBase
         StreamingTmdbId = 0;
         MediaTitle = string.Empty;
         WindowTitle = "Nuvio Player";
+        RequestStopWebStream?.Invoke();
     }
 
     public async Task PlayOnlineStreamAsync(string streamUrl, string title)

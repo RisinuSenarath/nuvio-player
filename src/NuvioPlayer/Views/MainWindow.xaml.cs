@@ -161,6 +161,7 @@ public partial class MainWindow : Window
         {
             await NavigateWebStreamAsync(url);
         };
+        _viewModel.RequestStopWebStream += StopWebStream;
 
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
 
@@ -351,6 +352,15 @@ public partial class MainWindow : Window
                 _viewModel.EndUserSeek(target);
             }
         };
+
+        StreamTopOverlayBar.MouseEnter += (s, e) => _inactivityTimer.Stop();
+        StreamTopOverlayBar.MouseLeave += (s, e) =>
+        {
+            if (_viewModel.IsPlaying || _viewModel.IsStreamingOnline)
+            {
+                _inactivityTimer.Start();
+            }
+        };
     }
 
     private void OnTopBarMouseDown(object sender, MouseButtonEventArgs e)
@@ -454,7 +464,7 @@ public partial class MainWindow : Window
 
     private void OnCursorPollTick(object? sender, EventArgs e)
     {
-        if (!_viewModel.HasMedia)
+        if (!_viewModel.HasMedia && !_viewModel.IsStreamingOnline)
         {
             return;
         }
@@ -484,7 +494,7 @@ public partial class MainWindow : Window
 
     private void OnUserActivityDetected()
     {
-        if (!_viewModel.HasMedia)
+        if (!_viewModel.HasMedia && !_viewModel.IsStreamingOnline)
         {
             return;
         }
@@ -500,7 +510,7 @@ public partial class MainWindow : Window
         }
 
         _inactivityTimer.Stop();
-        if (_viewModel.IsPlaying)
+        if (_viewModel.IsPlaying || _viewModel.IsStreamingOnline)
         {
             _inactivityTimer.Start();
         }
@@ -516,7 +526,7 @@ public partial class MainWindow : Window
                 return true;
 
             if (element is FrameworkElement fe && 
-                (fe.Name == "ControlsHud" || fe.Name == "TopOverlayBar" || fe.Name == "ResumePromptBanner"))
+                (fe.Name == "ControlsHud" || fe.Name == "TopOverlayBar" || fe.Name == "StreamTopOverlayBar" || fe.Name == "ResumePromptBanner"))
                 return true;
 
             element = VisualTreeHelper.GetParent(element);
@@ -626,7 +636,7 @@ public partial class MainWindow : Window
     private void OnInactivityTick(object? sender, EventArgs e)
     {
         _inactivityTimer.Stop();
-        if (_viewModel.IsPlaying && !_isDraggingSeek)
+        if ((_viewModel.IsPlaying || _viewModel.IsStreamingOnline) && !_isDraggingSeek)
         {
             _viewModel.AreControlsVisible = false;
             if (_viewModel.IsFullscreen)
@@ -900,6 +910,7 @@ public partial class MainWindow : Window
         {
             try
             {
+                StreamWebBrowser.CoreWebView2?.Navigate("about:blank");
                 StreamWebBrowser.Dispose();
             }
             catch { }
@@ -1000,8 +1011,22 @@ public partial class MainWindow : Window
         switch (e.PropertyName)
         {
             case nameof(MainViewModel.HasMedia):
+                UpdateVideoOverlayVisibility();
+                break;
+
             case nameof(MainViewModel.IsStreamingOnline):
                 UpdateVideoOverlayVisibility();
+                if (_viewModel.IsStreamingOnline)
+                {
+                    _viewModel.AreControlsVisible = true;
+                    _inactivityTimer.Start();
+                }
+                else
+                {
+                    _inactivityTimer.Stop();
+                    _viewModel.AreControlsVisible = true;
+                    Cursor = Cursors.Arrow;
+                }
                 break;
 
             case nameof(MainViewModel.IsFullscreen):
@@ -1014,7 +1039,7 @@ public partial class MainWindow : Window
                 {
                     _inactivityTimer.Start();
                 }
-                else
+                else if (!_viewModel.IsStreamingOnline)
                 {
                     _inactivityTimer.Stop();
                     _viewModel.AreControlsVisible = true;
@@ -1087,6 +1112,7 @@ public partial class MainWindow : Window
         }
     }
 
+    private readonly SemaphoreSlim _webViewLock = new(1, 1);
     private bool _isWebBrowserInitialized = false;
 
     private async Task NavigateWebStreamAsync(string url)
@@ -1095,17 +1121,37 @@ public partial class MainWindow : Window
         {
             await EnsureWebBrowserAsync();
             UpdateVideoOverlayVisibility();
-            StreamWebBrowser.CoreWebView2?.Navigate(url);
+            if (StreamWebBrowser.CoreWebView2 != null)
+            {
+                StreamWebBrowser.CoreWebView2.Navigate(url);
+            }
         }
         catch (Exception ex)
         {
-            _viewModel.ShowOsd($"Web player note: {ex.Message}", 4000);
+            _viewModel.ShowOsd($"Web stream note: {ex.Message}", 4000);
+        }
+    }
+
+    private void StopWebStream()
+    {
+        if (_isWebBrowserInitialized && StreamWebBrowser.CoreWebView2 != null)
+        {
             try
             {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+                // Pause all HTML5 media elements in the page immediately
+                _ = StreamWebBrowser.CoreWebView2.ExecuteScriptAsync(
+                    "document.querySelectorAll('video, audio').forEach(el => { try { el.pause(); el.src = ''; } catch(e){} });");
+
+                // Navigate away to about:blank to terminate all audio/video playback and network traffic
+                StreamWebBrowser.CoreWebView2.Navigate("about:blank");
             }
             catch { }
         }
+
+        _inactivityTimer.Stop();
+        _viewModel.AreControlsVisible = true;
+        Cursor = Cursors.Arrow;
+        UpdateVideoOverlayVisibility();
     }
 
     private async Task EnsureWebBrowserAsync()
@@ -1115,47 +1161,60 @@ public partial class MainWindow : Window
             return;
         }
 
-        string userDataFolder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "NuvioPlayer", "WebView2");
-
-        var env = await Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateAsync(userDataFolder: userDataFolder);
-        await StreamWebBrowser.EnsureCoreWebView2Async(env);
-
-        if (StreamWebBrowser.CoreWebView2 != null)
+        await _webViewLock.WaitAsync();
+        try
         {
-            StreamWebBrowser.CoreWebView2.Settings.AreDevToolsEnabled = false;
-            StreamWebBrowser.CoreWebView2.Settings.IsStatusBarEnabled = false;
-
-            // Block all advertisement popup windows that free streaming servers try to spawn
-            StreamWebBrowser.CoreWebView2.NewWindowRequested += (s, e) =>
+            if (_isWebBrowserInitialized && StreamWebBrowser.CoreWebView2 != null)
             {
-                e.Handled = true;
-            };
+                return;
+            }
 
-            // Synchronize HTML5 video fullscreen with Nuvio Player window fullscreen
-            StreamWebBrowser.CoreWebView2.ContainsFullScreenElementChanged += (s, e) =>
+            string userDataFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "NuvioPlayer", "WebView2");
+
+            var env = await Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateAsync(userDataFolder: userDataFolder);
+            await StreamWebBrowser.EnsureCoreWebView2Async(env);
+
+            if (StreamWebBrowser.CoreWebView2 != null)
             {
-                Dispatcher.Invoke(() =>
+                StreamWebBrowser.CoreWebView2.Settings.AreDevToolsEnabled = false;
+                StreamWebBrowser.CoreWebView2.Settings.IsStatusBarEnabled = false;
+
+                // Block all advertisement popup windows that free streaming servers try to spawn
+                StreamWebBrowser.CoreWebView2.NewWindowRequested += (s, e) =>
                 {
-                    if (StreamWebBrowser.CoreWebView2.ContainsFullScreenElement)
-                    {
-                        if (!_viewModel.IsFullscreen)
-                        {
-                            _viewModel.IsFullscreen = true;
-                        }
-                    }
-                    else
-                    {
-                        if (_viewModel.IsFullscreen)
-                        {
-                            _viewModel.IsFullscreen = false;
-                        }
-                    }
-                });
-            };
+                    e.Handled = true;
+                };
 
-            _isWebBrowserInitialized = true;
+                // Synchronize HTML5 video fullscreen with Nuvio Player window fullscreen
+                StreamWebBrowser.CoreWebView2.ContainsFullScreenElementChanged += (s, e) =>
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        if (StreamWebBrowser.CoreWebView2.ContainsFullScreenElement)
+                        {
+                            if (!_viewModel.IsFullscreen)
+                            {
+                                _viewModel.IsFullscreen = true;
+                            }
+                        }
+                        else
+                        {
+                            if (_viewModel.IsFullscreen)
+                            {
+                                _viewModel.IsFullscreen = false;
+                            }
+                        }
+                    });
+                };
+
+                _isWebBrowserInitialized = true;
+            }
+        }
+        finally
+        {
+            _webViewLock.Release();
         }
     }
 

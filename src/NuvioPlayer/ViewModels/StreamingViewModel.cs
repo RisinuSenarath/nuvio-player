@@ -267,9 +267,9 @@ public partial class StreamingViewModel : ViewModelBase
                 : $"{SelectedItem.Title} ({SelectedItem.ReleaseYear})")
             : "Online Stream";
 
-        if (SelectedItem != null)
+        if (SelectedItem != null && PlayWebStreamRequested != null)
         {
-            PlayWebStreamRequested?.Invoke(
+            PlayWebStreamRequested.Invoke(
                 SelectedItem.Id,
                 SelectedItem.MediaType,
                 SelectedSeason?.SeasonNumber,
@@ -277,8 +277,10 @@ public partial class StreamingViewModel : ViewModelBase
                 title,
                 SelectedProvider);
         }
-
-        PlayRequested?.Invoke(FallbackEmbedUrl, title);
+        else
+        {
+            PlayRequested?.Invoke(FallbackEmbedUrl, title);
+        }
     }
 
     [RelayCommand]

@@ -437,11 +437,15 @@ public class MainViewModelTests
     [Fact]
     public async Task CloseOnlineStream_ShouldResetStreamingProperties()
     {
+        bool stopRequested = false;
+        _viewModel.RequestStopWebStream += () => stopRequested = true;
+
         await _viewModel.StartWebStreamingAsync(550, "movie", null, null, "Fight Club", "vidlink");
         Assert.True(_viewModel.IsStreamingOnline);
 
         _viewModel.CloseOnlineStream();
 
+        Assert.True(stopRequested);
         Assert.False(_viewModel.IsStreamingOnline);
         Assert.Empty(_viewModel.StreamingUrl);
         Assert.Equal(0, _viewModel.StreamingTmdbId);

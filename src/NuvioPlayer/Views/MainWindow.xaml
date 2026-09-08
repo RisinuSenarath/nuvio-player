@@ -624,22 +624,24 @@
                 <Grid x:Name="WebStreamContainer"
                       Visibility="{Binding IsStreamingOnline, Converter={StaticResource BoolToVisConverter}}"
                       Background="#0B0D11">
-                    <Grid.RowDefinitions>
-                        <!-- Top Floating Controls Bar -->
-                        <RowDefinition Height="46"/>
-                        <!-- Embedded Edge WebView2 Video Surface -->
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
 
-                    <!-- Top Floating Controls Bar -->
-                    <Border Grid.Row="0"
-                            Background="{StaticResource BrushSurface}"
-                            BorderBrush="{StaticResource BrushBorder}"
+                    <!-- Edge WebView2 Player Surface (Full edge-to-edge) -->
+                    <wpf:WebView2 x:Name="StreamWebBrowser"
+                                  HorizontalAlignment="Stretch"
+                                  VerticalAlignment="Stretch"/>
+
+                    <!-- Top Floating Controls Bar (Overlaid on top, Auto-hides when idle like media controls) -->
+                    <Border x:Name="StreamTopOverlayBar"
+                            VerticalAlignment="Top"
+                            HorizontalAlignment="Stretch"
+                            Background="{StaticResource BrushHudBackground}"
+                            BorderBrush="{StaticResource BrushHudBorder}"
                             BorderThickness="0,0,0,1"
-                            Padding="14,0"
+                            Padding="14,6"
                             MouseDown="OnTopBarMouseDown"
                             MouseMove="OnTopBarMouseMove"
-                            MouseUp="OnTopBarMouseUp">
+                            MouseUp="OnTopBarMouseUp"
+                            Visibility="{Binding AreControlsVisible, Converter={StaticResource BoolToVisConverter}}">
                         <Grid VerticalAlignment="Center">
                             <Grid.ColumnDefinitions>
                                 <!-- Brand / Title -->
@@ -744,12 +746,6 @@
                             </StackPanel>
                         </Grid>
                     </Border>
-
-                    <!-- Edge WebView2 Player Surface -->
-                    <wpf:WebView2 x:Name="StreamWebBrowser"
-                                  Grid.Row="1"
-                                  HorizontalAlignment="Stretch"
-                                  VerticalAlignment="Stretch"/>
                 </Grid>
             </Grid>
 

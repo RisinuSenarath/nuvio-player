@@ -45,26 +45,18 @@ public partial class MainWindow : Window
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetCursorPos(out POINT lpPoint);
 
-    // Win32 Window Region for true physical rounded corners
-    [DllImport("gdi32.dll", EntryPoint = "CreateRoundRectRgn")]
-    private static extern IntPtr CreateRoundRectRgn(int x1, int y1, int x2, int y2, int cx, int cy);
-
-    [DllImport("user32.dll", EntryPoint = "SetWindowRgn")]
-    private static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, [MarshalAs(UnmanagedType.Bool)] bool bRedraw);
-
-    [DllImport("gdi32.dll", EntryPoint = "DeleteObject")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool DeleteObject(IntPtr hObject);
-
-    // DWM Window Corner Attributes (Windows 11)
+    // DWM Window Attributes (Windows 11)
     [DllImport("dwmapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
 
+    private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
     private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+    private const int DWMWA_BORDER_COLOR = 34;
+
     private const int DWMWCP_DEFAULT = 0;
     private const int DWMWCP_DONOTROUND = 1;
     private const int DWMWCP_ROUND = 2;
-    private const double WindowCornerRadius = 28;
+    private const double WindowCornerRadius = 12;
 
     public MainWindow(MainViewModel viewModel, ISettingsService settingsService)
     {
@@ -129,49 +121,6 @@ public partial class MainWindow : Window
     {
         base.OnSourceInitialized(e);
         SetWindowCornerPreference(true);
-        ApplyWindowRegion();
-    }
-
-    protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
-    {
-        base.OnRenderSizeChanged(sizeInfo);
-        ApplyWindowRegion();
-    }
-
-    private void ApplyWindowRegion()
-    {
-        try
-        {
-            var helper = new WindowInteropHelper(this);
-            if (helper.Handle == IntPtr.Zero) return;
-
-            if (WindowState == WindowState.Maximized || _viewModel.IsFullscreen)
-            {
-                SetWindowRgn(helper.Handle, IntPtr.Zero, true);
-                return;
-            }
-
-            var dpi = VisualTreeHelper.GetDpi(this);
-            int w = (int)Math.Round(ActualWidth * dpi.DpiScaleX);
-            int h = (int)Math.Round(ActualHeight * dpi.DpiScaleY);
-            int diameter = (int)Math.Round(WindowCornerRadius * 2 * dpi.DpiScaleX);
-
-            if (w > diameter && h > diameter)
-            {
-                IntPtr hRgn = CreateRoundRectRgn(0, 0, w + 1, h + 1, diameter, diameter);
-                if (hRgn != IntPtr.Zero)
-                {
-                    if (SetWindowRgn(helper.Handle, hRgn, true) == 0)
-                    {
-                        DeleteObject(hRgn);
-                    }
-                }
-            }
-        }
-        catch
-        {
-            // Fallback silently if region cannot be applied
-        }
     }
 
     private void SetWindowCornerPreference(bool round)
@@ -181,13 +130,22 @@ public partial class MainWindow : Window
             var helper = new WindowInteropHelper(this);
             if (helper.Handle != IntPtr.Zero)
             {
+                // Dark mode title/frame for seamless rendering
+                int darkMode = 1;
+                DwmSetWindowAttribute(helper.Handle, DWMWA_USE_IMMERSIVE_DARK_MODE, ref darkMode, sizeof(int));
+
+                // Rounded corner preference (Windows 11 hardware-anti-aliased native curve)
                 int preference = round ? DWMWCP_ROUND : DWMWCP_DONOTROUND;
                 DwmSetWindowAttribute(helper.Handle, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
+
+                // Subtle dark border color matching BrushSurfaceBorderSubtle (#1D212B)
+                int borderColor = 0x002B211D;
+                DwmSetWindowAttribute(helper.Handle, DWMWA_BORDER_COLOR, ref borderColor, sizeof(int));
             }
         }
         catch
         {
-            // Fallback silently if DWM corner preference is not supported on this OS
+            // Fallback silently if DWM attributes are not supported on this OS
         }
     }
 
@@ -619,7 +577,6 @@ public partial class MainWindow : Window
             RootBorder.CornerRadius = new CornerRadius(WindowCornerRadius);
             RootBorder.BorderThickness = new Thickness(1);
             SetWindowCornerPreference(true);
-            ApplyWindowRegion();
         }
         else
         {
@@ -627,7 +584,6 @@ public partial class MainWindow : Window
             RootBorder.CornerRadius = new CornerRadius(0);
             RootBorder.BorderThickness = new Thickness(0);
             SetWindowCornerPreference(false);
-            ApplyWindowRegion();
         }
     }
 
@@ -639,7 +595,6 @@ public partial class MainWindow : Window
             RootBorder.CornerRadius = isMaximized ? new CornerRadius(0) : new CornerRadius(WindowCornerRadius);
             RootBorder.BorderThickness = isMaximized ? new Thickness(0) : new Thickness(1);
             SetWindowCornerPreference(!isMaximized);
-            ApplyWindowRegion();
         }
 
         var iconData = isMaximized
@@ -772,7 +727,6 @@ public partial class MainWindow : Window
             WindowState = WindowState.Maximized;
 
             Topmost = true;
-            ApplyWindowRegion();
 
             if (FullscreenIconPath != null)
             {
@@ -795,7 +749,6 @@ public partial class MainWindow : Window
             RootBorder.CornerRadius = new CornerRadius(WindowCornerRadius);
             RootBorder.BorderThickness = new Thickness(1);
             SetWindowCornerPreference(true);
-            ApplyWindowRegion();
 
             // Restore WindowChrome
             WindowChrome.SetWindowChrome(this, WindowChromeElement);

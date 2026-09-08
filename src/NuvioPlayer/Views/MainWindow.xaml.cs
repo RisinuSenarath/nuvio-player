@@ -23,6 +23,8 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private readonly ISettingsService _settingsService;
     private readonly DispatcherTimer _inactivityTimer;
+    private readonly DispatcherTimer _cursorPollTimer;
+    private POINT _lastGlobalCursorPos;
 
     private Rect _previousWindowRect = new Rect(100, 100, 1200, 720);
     private WindowState _previousWindowState = WindowState.Normal;
@@ -31,6 +33,17 @@ public partial class MainWindow : Window
     private Point _mouseDownPos;
     private bool _isMouseDownOnVideo = false;
     private bool _isDraggingSeek = false;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out POINT lpPoint);
 
     // DWM Window Corner Attributes (Windows 11)
     [DllImport("dwmapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
@@ -55,6 +68,16 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromSeconds(_settingsService.Settings.ControlsAutoHideDelaySeconds)
         };
         _inactivityTimer.Tick += OnInactivityTick;
+
+        // Cursor polling timer for detecting mouse activity even over unmanaged video surface
+        _cursorPollTimer = new DispatcherTimer(DispatcherPriority.Input)
+        {
+            Interval = TimeSpan.FromMilliseconds(50)
+        };
+        _cursorPollTimer.Tick += OnCursorPollTick;
+        _cursorPollTimer.Start();
+
+        PlayerVideoView.Loaded += (s, e) => UpdateVideoOverlayVisibility();
 
         // Window commands
         _viewModel.RequestMinimize += () => WindowState = WindowState.Minimized;
@@ -160,8 +183,64 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnCursorPollTick(object? sender, EventArgs e)
+    {
+        if (!_viewModel.HasMedia)
+        {
+            return;
+        }
+
+        if (GetCursorPos(out POINT pt))
+        {
+            if (pt.X != _lastGlobalCursorPos.X || pt.Y != _lastGlobalCursorPos.Y)
+            {
+                _lastGlobalCursorPos = pt;
+
+                try
+                {
+                    Point localPoint = PointFromScreen(new Point(pt.X, pt.Y));
+                    if (localPoint.X >= 0 && localPoint.X <= ActualWidth &&
+                        localPoint.Y >= 0 && localPoint.Y <= ActualHeight)
+                    {
+                        OnUserActivityDetected();
+                    }
+                }
+                catch
+                {
+                    // Ignore during window state or minimize transitions
+                }
+            }
+        }
+    }
+
+    private void OnUserActivityDetected()
+    {
+        if (!_viewModel.HasMedia)
+        {
+            return;
+        }
+
+        if (!_viewModel.AreControlsVisible)
+        {
+            _viewModel.AreControlsVisible = true;
+        }
+
+        if (Cursor != Cursors.Arrow)
+        {
+            Cursor = Cursors.Arrow;
+        }
+
+        _inactivityTimer.Stop();
+        if (_viewModel.IsPlaying)
+        {
+            _inactivityTimer.Start();
+        }
+    }
+
     private void OnVideoOverlayMouseDown(object sender, MouseButtonEventArgs e)
     {
+        OnUserActivityDetected();
+
         if (e.ChangedButton == MouseButton.Left)
         {
             _isMouseDownOnVideo = true;
@@ -178,7 +257,7 @@ public partial class MainWindow : Window
 
     private void OnVideoOverlayMouseMove(object sender, MouseEventArgs e)
     {
-        OnWindowMouseMove(sender, e);
+        OnUserActivityDetected();
 
         if (_isMouseDownOnVideo && e.LeftButton == MouseButtonState.Pressed && !_viewModel.IsFullscreen)
         {
@@ -216,6 +295,8 @@ public partial class MainWindow : Window
 
     private void OnVideoOverlayMouseWheel(object sender, MouseWheelEventArgs e)
     {
+        OnUserActivityDetected();
+
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
         {
             int seconds = e.Delta > 0 ? 10 : -10;
@@ -231,14 +312,7 @@ public partial class MainWindow : Window
 
     private void OnWindowMouseMove(object sender, MouseEventArgs e)
     {
-        _viewModel.AreControlsVisible = true;
-        Cursor = Cursors.Arrow;
-
-        _inactivityTimer.Stop();
-        if (_viewModel.IsPlaying)
-        {
-            _inactivityTimer.Start();
-        }
+        OnUserActivityDetected();
     }
 
     private void OnInactivityTick(object? sender, EventArgs e)
@@ -425,12 +499,14 @@ public partial class MainWindow : Window
     private void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
         ApplyWindowBounds();
+        UpdateVideoOverlayVisibility();
     }
 
     private void OnWindowClosing(object? sender, CancelEventArgs e)
     {
         SaveWindowBounds();
         _inactivityTimer.Stop();
+        _cursorPollTimer.Stop();
     }
 
     private void ApplyWindowBounds()
@@ -526,6 +602,10 @@ public partial class MainWindow : Window
     {
         switch (e.PropertyName)
         {
+            case nameof(MainViewModel.HasMedia):
+                UpdateVideoOverlayVisibility();
+                break;
+
             case nameof(MainViewModel.IsFullscreen):
                 ApplyFullscreen(_viewModel.IsFullscreen);
                 break;
@@ -548,6 +628,41 @@ public partial class MainWindow : Window
             case nameof(MainViewModel.Volume):
                 UpdateVolumeVisuals();
                 break;
+        }
+    }
+
+    private Window? GetVlcForegroundWindow()
+    {
+        try
+        {
+            var prop = typeof(LibVLCSharp.WPF.VideoView).GetProperty("ForegroundWindow",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            return prop?.GetValue(PlayerVideoView) as Window;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private void UpdateVideoOverlayVisibility()
+    {
+        var fgWindow = GetVlcForegroundWindow();
+        if (_viewModel.HasMedia)
+        {
+            VideoOverlayGrid.Visibility = Visibility.Visible;
+            if (fgWindow != null)
+            {
+                fgWindow.Visibility = Visibility.Visible;
+            }
+        }
+        else
+        {
+            VideoOverlayGrid.Visibility = Visibility.Collapsed;
+            if (fgWindow != null)
+            {
+                fgWindow.Visibility = Visibility.Collapsed;
+            }
         }
     }
 

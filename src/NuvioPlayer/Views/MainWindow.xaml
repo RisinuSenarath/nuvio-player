@@ -249,8 +249,12 @@
 
                     <!-- Overlay Grid Hosted on LibVLC ForegroundWindow Layer -->
                     <Grid x:Name="VideoOverlayGrid"
-                          Background="#00000000"
+                          Background="#01000000"
+                          Visibility="{Binding HasMedia, Converter={StaticResource BoolToVisConverter}}"
                           Focusable="True"
+                          AllowDrop="True"
+                          Drop="OnWindowDrop"
+                          DragOver="OnWindowDragOver"
                           PreviewMouseDown="OnVideoOverlayMouseDown"
                           MouseMove="OnVideoOverlayMouseMove"
                           PreviewMouseUp="OnVideoOverlayMouseUp"

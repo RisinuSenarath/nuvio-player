@@ -624,14 +624,15 @@
                 <Grid x:Name="WebStreamContainer"
                       Visibility="{Binding IsStreamingOnline, Converter={StaticResource BoolToVisConverter}}"
                       Background="#0B0D11">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-                    <!-- Edge WebView2 Player Surface (Full edge-to-edge) -->
-                    <wpf:WebView2 x:Name="StreamWebBrowser"
-                                  HorizontalAlignment="Stretch"
-                                  VerticalAlignment="Stretch"/>
-
-                    <!-- Top Floating Controls Bar (Overlaid on top, Auto-hides when idle like media controls) -->
-                    <Border x:Name="StreamTopOverlayBar"
+                    <!-- Top Controls Bar (Row 0: Cleanly placed above WebView2, zero airspace conflict!) -->
+                    <Border Grid.Row="0"
+                            x:Name="StreamTopOverlayBar"
+                            Height="46"
                             VerticalAlignment="Top"
                             HorizontalAlignment="Stretch"
                             Background="{StaticResource BrushHudBackground}"
@@ -746,6 +747,12 @@
                             </StackPanel>
                         </Grid>
                     </Border>
+
+                    <!-- Edge WebView2 Player Surface (Row 1: edge-to-edge video player surface) -->
+                    <wpf:WebView2 Grid.Row="1"
+                                  x:Name="StreamWebBrowser"
+                                  HorizontalAlignment="Stretch"
+                                  VerticalAlignment="Stretch"/>
                 </Grid>
             </Grid>
 

@@ -491,12 +491,12 @@ public partial class MainWindow : Window
             try
             {
                 Point localPoint = PointFromScreen(new Point(pt.X, pt.Y));
-                bool isInside = localPoint.X >= 0 && localPoint.X <= ActualWidth &&
-                                localPoint.Y >= 0 && localPoint.Y <= ActualHeight;
+                bool isInside = localPoint.X >= -20 && localPoint.X <= ActualWidth + 20 &&
+                                localPoint.Y >= -20 && localPoint.Y <= ActualHeight + 20;
 
-                if (isInside && _viewModel.IsStreamingOnline)
+                if (_viewModel.IsStreamingOnline)
                 {
-                    if (localPoint.Y <= StreamTopBarTriggerHeight)
+                    if (isInside && localPoint.Y <= StreamTopBarTriggerHeight)
                     {
                         // Cursor reached the top of the player!
                         _streamTopBarTimer.Stop();
@@ -507,7 +507,7 @@ public partial class MainWindow : Window
                     }
                     else
                     {
-                        // Cursor is outside the top zone
+                        // Cursor is outside the top zone (lower in video or outside the window)
                         if (_viewModel.IsStreamTopBarVisible && !_streamTopBarTimer.IsEnabled)
                         {
                             _streamTopBarTimer.Start();
@@ -703,8 +703,8 @@ public partial class MainWindow : Window
             try
             {
                 Point localPoint = PointFromScreen(new Point(pt.X, pt.Y));
-                if (localPoint.X >= 0 && localPoint.X <= ActualWidth &&
-                    localPoint.Y >= 0 && localPoint.Y <= StreamTopBarTriggerHeight)
+                if (localPoint.X >= -20 && localPoint.X <= ActualWidth + 20 &&
+                    localPoint.Y >= -20 && localPoint.Y <= StreamTopBarTriggerHeight)
                 {
                     // User cursor is still at the top of the player, keep visible
                     return;

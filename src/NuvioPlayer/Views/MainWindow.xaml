@@ -22,14 +22,14 @@
         <WindowChrome x:Name="WindowChromeElement"
                       CaptionHeight="0"
                       ResizeBorderThickness="8"
-                      CornerRadius="12"
+                      CornerRadius="20"
                       GlassFrameThickness="0"
                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
     <!-- Root Window Border with Rounded Corners in Windowed Mode -->
     <Border x:Name="RootBorder"
-            CornerRadius="12"
+            CornerRadius="20"
             BorderThickness="1"
             BorderBrush="{StaticResource BrushSurfaceBorderSubtle}"
             Background="{StaticResource BrushBackground}"
@@ -148,94 +148,6 @@
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
-
-                            <!-- Recent Media Section -->
-                            <Border Margin="0,32,0,0"
-                                    Width="520"
-                                    HorizontalAlignment="Center"
-                                    Visibility="{Binding HasRecentMedia, Converter={StaticResource BoolToVisConverter}}">
-                                <StackPanel>
-                                    <Grid Margin="0,0,0,10">
-                                        <TextBlock Text="RECENT MEDIA"
-                                                   FontSize="11"
-                                                   FontWeight="Bold"
-                                                   Foreground="{StaticResource BrushTextTertiary}"/>
-                                        <Button HorizontalAlignment="Right"
-                                                Content="Clear History"
-                                                Style="{StaticResource FlatButton}"
-                                                Command="{Binding ClearRecentMediaCommand}"
-                                                Foreground="{StaticResource BrushTextTertiary}"
-                                                FontSize="11"
-                                                Padding="4,2"/>
-                                    </Grid>
-
-                                    <ItemsControl ItemsSource="{Binding RecentMedia}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Background="{StaticResource BrushSurface}"
-                                                        BorderBrush="{StaticResource BrushBorder}"
-                                                        BorderThickness="1"
-                                                        CornerRadius="6"
-                                                        Padding="12,8"
-                                                        Margin="0,0,0,6">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                        </Grid.ColumnDefinitions>
-
-                                                        <!-- Play icon button -->
-                                                        <Button Grid.Column="0"
-                                                                Style="{StaticResource IconButton}"
-                                                                Command="{Binding DataContext.OpenRecentMediaCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                                CommandParameter="{Binding}"
-                                                                Margin="0,0,10,0">
-                                                            <Viewbox Width="12" Height="12">
-                                                                <Path Fill="{StaticResource BrushAccent}" Data="{StaticResource IconPlay}"/>
-                                                            </Viewbox>
-                                                        </Button>
-
-                                                        <!-- Title & Progress -->
-                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding DisplayName}"
-                                                                       FontWeight="Medium"
-                                                                       FontSize="13"
-                                                                       Foreground="{StaticResource BrushTextPrimary}"
-                                                                       TextTrimming="CharacterEllipsis"/>
-                                                            <TextBlock Text="{Binding ProgressText}"
-                                                                       FontSize="11"
-                                                                       Foreground="{StaticResource BrushTextTertiary}"
-                                                                       Margin="0,2,0,0"/>
-                                                        </StackPanel>
-
-                                                        <!-- Relative Time -->
-                                                        <TextBlock Grid.Column="2"
-                                                                   Text="{Binding RelativeTime}"
-                                                                   FontSize="11"
-                                                                   Foreground="{StaticResource BrushTextSecondary}"
-                                                                   VerticalAlignment="Center"
-                                                                   Margin="12,0"/>
-
-                                                        <!-- Remove button -->
-                                                        <Button Grid.Column="3"
-                                                                Style="{StaticResource IconButton}"
-                                                                Command="{Binding DataContext.RemoveRecentMediaCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                                CommandParameter="{Binding}"
-                                                                ToolTip="Remove from history"
-                                                                Width="24" Height="24">
-                                                            <Viewbox Width="9" Height="9">
-                                                                <Path Fill="{StaticResource BrushTextTertiary}" Data="{StaticResource IconWindowClose}"/>
-                                                            </Viewbox>
-                                                        </Button>
-                                                    </Grid>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </Border>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>

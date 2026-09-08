@@ -53,6 +53,7 @@ public partial class MainWindow : Window
     private const int DWMWCP_DEFAULT = 0;
     private const int DWMWCP_DONOTROUND = 1;
     private const int DWMWCP_ROUND = 2;
+    private const double WindowCornerRadius = 20;
 
     public MainWindow(MainViewModel viewModel, ISettingsService settingsService)
     {
@@ -561,7 +562,7 @@ public partial class MainWindow : Window
         if (WindowState == WindowState.Maximized)
         {
             WindowState = WindowState.Normal;
-            RootBorder.CornerRadius = new CornerRadius(12);
+            RootBorder.CornerRadius = new CornerRadius(WindowCornerRadius);
             RootBorder.BorderThickness = new Thickness(1);
             SetWindowCornerPreference(true);
         }
@@ -579,7 +580,7 @@ public partial class MainWindow : Window
         bool isMaximized = WindowState == WindowState.Maximized;
         if (!_viewModel.IsFullscreen)
         {
-            RootBorder.CornerRadius = isMaximized ? new CornerRadius(0) : new CornerRadius(12);
+            RootBorder.CornerRadius = isMaximized ? new CornerRadius(0) : new CornerRadius(WindowCornerRadius);
             RootBorder.BorderThickness = isMaximized ? new Thickness(0) : new Thickness(1);
             SetWindowCornerPreference(!isMaximized);
         }
@@ -733,7 +734,7 @@ public partial class MainWindow : Window
             Width = _previousWindowRect.Width;
             Height = _previousWindowRect.Height;
 
-            RootBorder.CornerRadius = new CornerRadius(12);
+            RootBorder.CornerRadius = new CornerRadius(WindowCornerRadius);
             RootBorder.BorderThickness = new Thickness(1);
             SetWindowCornerPreference(true);
 

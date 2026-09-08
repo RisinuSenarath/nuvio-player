@@ -6,6 +6,7 @@
         xmlns:vm="clr-namespace:NuvioPlayer.ViewModels"
         xmlns:models="clr-namespace:NuvioPlayer.Models"
         xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
+        xmlns:wpf="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
         Title="{Binding WindowTitle}"
@@ -618,6 +619,138 @@
                         </Border>
                     </Grid>
                 </vlc:VideoView>
+
+                <!-- 3. In-Player Online Web Streaming Container -->
+                <Grid x:Name="WebStreamContainer"
+                      Visibility="{Binding IsStreamingOnline, Converter={StaticResource BoolToVisConverter}}"
+                      Background="#0B0D11">
+                    <Grid.RowDefinitions>
+                        <!-- Top Floating Controls Bar -->
+                        <RowDefinition Height="46"/>
+                        <!-- Embedded Edge WebView2 Video Surface -->
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Top Floating Controls Bar -->
+                    <Border Grid.Row="0"
+                            Background="{StaticResource BrushSurface}"
+                            BorderBrush="{StaticResource BrushBorder}"
+                            BorderThickness="0,0,0,1"
+                            Padding="14,0"
+                            MouseDown="OnTopBarMouseDown"
+                            MouseMove="OnTopBarMouseMove"
+                            MouseUp="OnTopBarMouseUp">
+                        <Grid VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <!-- Brand / Title -->
+                                <ColumnDefinition Width="Auto"/>
+                                <!-- Spacer / Draggable Area -->
+                                <ColumnDefinition Width="*"/>
+                                <!-- Server Switcher & Window Buttons -->
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Brand & Stream Title -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Viewbox Width="16" Height="16" Margin="0,0,8,0">
+                                    <Path Fill="{StaticResource BrushAccent}" Data="{StaticResource IconStream}"/>
+                                </Viewbox>
+                                <TextBlock Text="{Binding MediaTitle}"
+                                           FontWeight="SemiBold"
+                                           FontSize="13"
+                                           Foreground="{StaticResource BrushTextPrimary}"
+                                           VerticalAlignment="Center"
+                                           MaxWidth="360"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <Border Background="{StaticResource BrushSurfaceActive}"
+                                        CornerRadius="4"
+                                        Padding="6,2"
+                                        Margin="10,0,0,0"
+                                        VerticalAlignment="Center">
+                                    <TextBlock Text="LIVE STREAM"
+                                               FontSize="10"
+                                               FontWeight="Bold"
+                                               Foreground="{StaticResource BrushAccent}"/>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- Draggable Space -->
+                            <Grid Grid.Column="1"/>
+
+                            <!-- Server Switcher & Window Controls -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Server:"
+                                           FontSize="11"
+                                           FontWeight="Medium"
+                                           Foreground="{StaticResource BrushTextSecondary}"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,8,0"/>
+
+                                <!-- Server Switcher Buttons -->
+                                <Button Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding SwitchStreamingProviderCommand}"
+                                        CommandParameter="vidlink"
+                                        Padding="8,4"
+                                        Margin="0,0,4,0"
+                                        ToolTip="⚡ VidLink (Fast JWPlayer CDN)">
+                                    <TextBlock Text="⚡ VidLink" FontSize="11"/>
+                                </Button>
+                                <Button Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding SwitchStreamingProviderCommand}"
+                                        CommandParameter="superembed"
+                                        Padding="8,4"
+                                        Margin="0,0,4,0"
+                                        ToolTip="SuperEmbed Multi-Source">
+                                    <TextBlock Text="SuperEmbed" FontSize="11"/>
+                                </Button>
+                                <Button Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding SwitchStreamingProviderCommand}"
+                                        CommandParameter="vidsrc"
+                                        Padding="8,4"
+                                        Margin="0,0,4,0"
+                                        ToolTip="VidSrc v3">
+                                    <TextBlock Text="VidSrc v3" FontSize="11"/>
+                                </Button>
+                                <Button Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding SwitchStreamingProviderCommand}"
+                                        CommandParameter="vidking"
+                                        Padding="8,4"
+                                        Margin="0,0,10,0"
+                                        ToolTip="VidKing">
+                                    <TextBlock Text="VidKing" FontSize="11"/>
+                                </Button>
+
+                                <!-- Fullscreen Toggle -->
+                                <Button Style="{StaticResource TitleBarButton}"
+                                        Command="{Binding ToggleFullscreenCommand}"
+                                        Margin="0,0,4,0"
+                                        ToolTip="Toggle Fullscreen (Enter / F)">
+                                    <Viewbox Width="10" Height="10">
+                                        <Path x:Name="StreamFullscreenIconPath"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Data="{StaticResource IconFullscreen}"/>
+                                    </Viewbox>
+                                </Button>
+
+                                <!-- Close Stream Button -->
+                                <Button Style="{StaticResource TitleBarCloseButton}"
+                                        Command="{Binding CloseOnlineStreamCommand}"
+                                        ToolTip="Close Stream &amp; Return to Dashboard">
+                                    <Viewbox Width="10" Height="10">
+                                        <Path Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Data="{StaticResource IconWindowClose}"/>
+                                    </Viewbox>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Edge WebView2 Player Surface -->
+                    <wpf:WebView2 x:Name="StreamWebBrowser"
+                                  Grid.Row="1"
+                                  HorizontalAlignment="Stretch"
+                                  VerticalAlignment="Stretch"/>
+                </Grid>
             </Grid>
 
             <!-- Column 1: Collapsible Right Sidebar (Playlist & Bookmarks) -->

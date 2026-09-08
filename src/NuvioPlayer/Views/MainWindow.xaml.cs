@@ -157,6 +157,10 @@ public partial class MainWindow : Window
         _viewModel.RequestOpenMediaInfo += OnRequestOpenMediaInfo;
         _viewModel.RequestOpenSettings += OnRequestOpenSettings;
         _viewModel.RequestOpenStreaming += OnRequestOpenStreaming;
+        _viewModel.RequestNavigateWebStream += async (url) =>
+        {
+            await NavigateWebStreamAsync(url);
+        };
 
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
 
@@ -744,6 +748,11 @@ public partial class MainWindow : Window
                     _viewModel.IsFullscreen = false;
                     handled = true;
                 }
+                else if (_viewModel.IsStreamingOnline)
+                {
+                    _viewModel.CloseOnlineStreamCommand.Execute(null);
+                    handled = true;
+                }
                 break;
 
             case Key.S:
@@ -887,6 +896,15 @@ public partial class MainWindow : Window
         _inactivityTimer.Stop();
         _cursorPollTimer.Stop();
 
+        if (_isWebBrowserInitialized)
+        {
+            try
+            {
+                StreamWebBrowser.Dispose();
+            }
+            catch { }
+        }
+
         if (_hBackgroundBrush != IntPtr.Zero)
         {
             DeleteObject(_hBackgroundBrush);
@@ -982,6 +1000,7 @@ public partial class MainWindow : Window
         switch (e.PropertyName)
         {
             case nameof(MainViewModel.HasMedia):
+            case nameof(MainViewModel.IsStreamingOnline):
                 UpdateVideoOverlayVisibility();
                 break;
 
@@ -1033,8 +1052,22 @@ public partial class MainWindow : Window
             fgWindow.PreviewKeyDown += OnForegroundWindowPreviewKeyDown;
         }
 
-        if (_viewModel.HasMedia)
+        if (_viewModel.IsStreamingOnline)
         {
+            HomeScreenGrid.Visibility = Visibility.Collapsed;
+            PlayerVideoView.Visibility = Visibility.Collapsed;
+            WebStreamContainer.Visibility = Visibility.Visible;
+            VideoOverlayGrid.Visibility = Visibility.Collapsed;
+            if (fgWindow != null)
+            {
+                fgWindow.Visibility = Visibility.Collapsed;
+            }
+        }
+        else if (_viewModel.HasMedia)
+        {
+            HomeScreenGrid.Visibility = Visibility.Collapsed;
+            PlayerVideoView.Visibility = Visibility.Visible;
+            WebStreamContainer.Visibility = Visibility.Collapsed;
             VideoOverlayGrid.Visibility = Visibility.Visible;
             if (fgWindow != null)
             {
@@ -1043,11 +1076,86 @@ public partial class MainWindow : Window
         }
         else
         {
+            HomeScreenGrid.Visibility = Visibility.Visible;
+            PlayerVideoView.Visibility = Visibility.Collapsed;
+            WebStreamContainer.Visibility = Visibility.Collapsed;
             VideoOverlayGrid.Visibility = Visibility.Collapsed;
             if (fgWindow != null)
             {
                 fgWindow.Visibility = Visibility.Collapsed;
             }
+        }
+    }
+
+    private bool _isWebBrowserInitialized = false;
+
+    private async Task NavigateWebStreamAsync(string url)
+    {
+        try
+        {
+            await EnsureWebBrowserAsync();
+            UpdateVideoOverlayVisibility();
+            StreamWebBrowser.CoreWebView2?.Navigate(url);
+        }
+        catch (Exception ex)
+        {
+            _viewModel.ShowOsd($"Web player note: {ex.Message}", 4000);
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+            }
+            catch { }
+        }
+    }
+
+    private async Task EnsureWebBrowserAsync()
+    {
+        if (_isWebBrowserInitialized && StreamWebBrowser.CoreWebView2 != null)
+        {
+            return;
+        }
+
+        string userDataFolder = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "NuvioPlayer", "WebView2");
+
+        var env = await Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateAsync(userDataFolder: userDataFolder);
+        await StreamWebBrowser.EnsureCoreWebView2Async(env);
+
+        if (StreamWebBrowser.CoreWebView2 != null)
+        {
+            StreamWebBrowser.CoreWebView2.Settings.AreDevToolsEnabled = false;
+            StreamWebBrowser.CoreWebView2.Settings.IsStatusBarEnabled = false;
+
+            // Block all advertisement popup windows that free streaming servers try to spawn
+            StreamWebBrowser.CoreWebView2.NewWindowRequested += (s, e) =>
+            {
+                e.Handled = true;
+            };
+
+            // Synchronize HTML5 video fullscreen with Nuvio Player window fullscreen
+            StreamWebBrowser.CoreWebView2.ContainsFullScreenElementChanged += (s, e) =>
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    if (StreamWebBrowser.CoreWebView2.ContainsFullScreenElement)
+                    {
+                        if (!_viewModel.IsFullscreen)
+                        {
+                            _viewModel.IsFullscreen = true;
+                        }
+                    }
+                    else
+                    {
+                        if (_viewModel.IsFullscreen)
+                        {
+                            _viewModel.IsFullscreen = false;
+                        }
+                    }
+                });
+            };
+
+            _isWebBrowserInitialized = true;
         }
     }
 
@@ -1121,6 +1229,10 @@ public partial class MainWindow : Window
             {
                 FullscreenIconPath.Data = (Geometry)FindResource("IconExitFullscreen");
             }
+            if (StreamFullscreenIconPath != null)
+            {
+                StreamFullscreenIconPath.Data = (Geometry)FindResource("IconExitFullscreen");
+            }
         }
         else
         {
@@ -1143,6 +1255,10 @@ public partial class MainWindow : Window
             if (FullscreenIconPath != null)
             {
                 FullscreenIconPath.Data = (Geometry)FindResource("IconFullscreen");
+            }
+            if (StreamFullscreenIconPath != null)
+            {
+                StreamFullscreenIconPath.Data = (Geometry)FindResource("IconFullscreen");
             }
 
             Cursor = Cursors.Arrow;
@@ -1214,6 +1330,10 @@ public partial class MainWindow : Window
         streamingVm.PlayRequested += async (url, title) =>
         {
             await _viewModel.PlayOnlineStreamAsync(url, title);
+        };
+        streamingVm.PlayWebStreamRequested += async (tmdbId, mediaType, season, episode, title, provider) =>
+        {
+            await _viewModel.StartWebStreamingAsync(tmdbId, mediaType, season, episode, title, provider);
         };
         window.ShowDialog();
     }

@@ -17,15 +17,11 @@ public class DirectStreamResolverService : IDirectStreamResolverService
     private readonly HttpClient _httpClient;
     private readonly ILogger<DirectStreamResolverService>? _logger;
 
-    private static readonly string[] StreamEndpoints = new[]
-    {
-        "https://nuviostreams.hayd.uk",
-        "https://webstreamr.hayd.uk"
-    };
+    private static readonly string[] StreamEndpoints = Array.Empty<string>();
 
     public DirectStreamResolverService(HttpClient? httpClient = null, ILogger<DirectStreamResolverService>? logger = null)
     {
-        _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
         _logger = logger;
     }
 
@@ -36,6 +32,11 @@ public class DirectStreamResolverService : IDirectStreamResolverService
         int? episode = null,
         CancellationToken cancellationToken = default)
     {
+        if (StreamEndpoints.Length == 0)
+        {
+            return new List<DirectStreamSource>();
+        }
+
         bool isTv = mediaType == "tv" || mediaType == "series";
         string type = isTv ? "series" : "movie";
         string streamId = isTv && season.HasValue && episode.HasValue
@@ -48,7 +49,7 @@ public class DirectStreamResolverService : IDirectStreamResolverService
             try
             {
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                cts.CancelAfter(TimeSpan.FromSeconds(8));
+                cts.CancelAfter(TimeSpan.FromSeconds(5));
 
                 string json = await _httpClient.GetStringAsync(url, cts.Token);
                 var root = JsonNode.Parse(json);
@@ -118,21 +119,29 @@ public class DirectStreamResolverService : IDirectStreamResolverService
 
         return provider.ToLowerInvariant() switch
         {
+            "superembed" or "multiembed" => isTv
+                ? $"https://multiembed.mov/?video_id={tmdbId}&tmdb=1&s={s}&e={ep}"
+                : $"https://multiembed.mov/?video_id={tmdbId}&tmdb=1",
+
+            "vidsrc-v3" => isTv
+                ? $"https://vidsrc.cc/v3/embed/tv/{tmdbId}/{s}/{ep}?autoPlay=true"
+                : $"https://vidsrc.cc/v3/embed/movie/{tmdbId}?autoPlay=true",
+
             "vidsrc" => isTv
                 ? $"https://vidsrc.cc/v2/embed/tv/{tmdbId}/{s}/{ep}?autoPlay=true"
                 : $"https://vidsrc.cc/v2/embed/movie/{tmdbId}?autoPlay=true",
 
-            "superembed" => isTv
-                ? $"https://multiembed.mov/?video_id={tmdbId}&tmdb=1&s={s}&e={ep}"
-                : $"https://multiembed.mov/?video_id={tmdbId}&tmdb=1",
+            "vidking" => isTv
+                ? $"https://www.vidking.net/embed/tv/{tmdbId}/{s}/{ep}?color={primaryColor}&autoplay=true"
+                : $"https://www.vidking.net/embed/movie/{tmdbId}?color={primaryColor}&autoplay=true",
 
             "autoembed" => isTv
                 ? $"https://player.autoembed.cc/embed/tv/{tmdbId}/{s}/{ep}"
                 : $"https://player.autoembed.cc/embed/movie/{tmdbId}",
 
-            _ => isTv // Default: VidLink
-                ? $"https://vidlink.pro/tv/{tmdbId}/{s}/{ep}?primaryColor={primaryColor}&autoplay=true"
-                : $"https://vidlink.pro/movie/{tmdbId}?primaryColor={primaryColor}&autoplay=true"
+            _ => isTv // Default: VidLink (with JWPlayer)
+                ? $"https://vidlink.pro/tv/{tmdbId}/{s}/{ep}?player=jw&primaryColor={primaryColor}&autoplay=true"
+                : $"https://vidlink.pro/movie/{tmdbId}?player=jw&primaryColor={primaryColor}&autoplay=true"
         };
     }
 

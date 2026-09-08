@@ -2,6 +2,7 @@ namespace NuvioPlayer.ViewModels;
 
 using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -51,12 +52,16 @@ public partial class StreamingViewModel : ViewModelBase
     [ObservableProperty]
     private string? _fallbackEmbedUrl;
 
+    [ObservableProperty]
+    private string _selectedProvider = "vidlink";
+
     public ObservableCollection<MediaCatalogItem> CatalogItems { get; } = new();
     public ObservableCollection<TvSeason> Seasons { get; } = new();
     public ObservableCollection<TvEpisode> Episodes { get; } = new();
     public ObservableCollection<DirectStreamSource> AvailableStreams { get; } = new();
 
     public event Action<string, string>? PlayRequested;
+    public event Action<int, string, int?, int?, string, string>? PlayWebStreamRequested;
     public event Action? CloseRequested;
 
     public StreamingViewModel(ITmdbService tmdbService, IDirectStreamResolverService streamResolver)
@@ -237,15 +242,57 @@ public partial class StreamingViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    public void SelectProvider(string provider)
+    {
+        SelectedProvider = provider;
+        if (SelectedItem != null)
+        {
+            FallbackEmbedUrl = _streamResolver.GetEmbedFallbackUrl(
+                SelectedItem.Id,
+                SelectedItem.MediaType,
+                SelectedSeason?.SeasonNumber,
+                SelectedEpisode?.EpisodeNumber,
+                provider);
+        }
+    }
+
+    [RelayCommand]
     public void PlayEmbedFallback()
     {
         if (string.IsNullOrWhiteSpace(FallbackEmbedUrl)) return;
 
         string title = SelectedItem != null
-            ? $"{SelectedItem.Title} (Online Stream)"
+            ? (SelectedItem.MediaType == "tv" && SelectedEpisode != null
+                ? $"{SelectedItem.Title} - {SelectedEpisode.EpisodeCode}: {SelectedEpisode.Title}"
+                : $"{SelectedItem.Title} ({SelectedItem.ReleaseYear})")
             : "Online Stream";
 
+        if (SelectedItem != null)
+        {
+            PlayWebStreamRequested?.Invoke(
+                SelectedItem.Id,
+                SelectedItem.MediaType,
+                SelectedSeason?.SeasonNumber,
+                SelectedEpisode?.EpisodeNumber,
+                title,
+                SelectedProvider);
+        }
+
         PlayRequested?.Invoke(FallbackEmbedUrl, title);
+    }
+
+    [RelayCommand]
+    public void OpenInBrowser()
+    {
+        if (string.IsNullOrWhiteSpace(FallbackEmbedUrl)) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(FallbackEmbedUrl) { UseShellExecute = true });
+        }
+        catch
+        {
+            // Ignore browser launch failure
+        }
     }
 
     [RelayCommand]
@@ -268,7 +315,7 @@ public partial class StreamingViewModel : ViewModelBase
         int? season = SelectedSeason?.SeasonNumber;
         int? episode = SelectedEpisode?.EpisodeNumber;
 
-        FallbackEmbedUrl = _streamResolver.GetEmbedFallbackUrl(tmdbId, mediaType, season, episode, "vidlink");
+        FallbackEmbedUrl = _streamResolver.GetEmbedFallbackUrl(tmdbId, mediaType, season, episode, SelectedProvider);
 
         try
         {

@@ -399,4 +399,67 @@ public class MainViewModelTests
         Assert.Equal("5.1 Surround", details.AudioChannelsText);
         Assert.Equal("23.98 fps", details.FrameRateText);
     }
+
+    [Fact]
+    public async Task StartWebStreamingAsync_ShouldSetStreamingPropertiesAndRaiseNavigation()
+    {
+        string? navigatedUrl = null;
+        _viewModel.RequestNavigateWebStream += url => navigatedUrl = url;
+
+        await _viewModel.StartWebStreamingAsync(550, "movie", null, null, "Fight Club", "vidlink");
+
+        Assert.True(_viewModel.IsStreamingOnline);
+        Assert.False(_viewModel.HasMedia);
+        Assert.Equal("Fight Club", _viewModel.MediaTitle);
+        Assert.Equal("Fight Club — Nuvio Player", _viewModel.WindowTitle);
+        Assert.Equal(550, _viewModel.StreamingTmdbId);
+        Assert.Equal("movie", _viewModel.StreamingMediaType);
+        Assert.Equal("vidlink", _viewModel.StreamingProvider);
+        Assert.Contains("vidlink.pro/movie/550", _viewModel.StreamingUrl);
+        Assert.Equal(_viewModel.StreamingUrl, navigatedUrl);
+    }
+
+    [Fact]
+    public async Task SwitchStreamingProvider_ShouldUpdateUrlAndProvider()
+    {
+        await _viewModel.StartWebStreamingAsync(550, "movie", null, null, "Fight Club", "vidlink");
+
+        string? updatedUrl = null;
+        _viewModel.RequestNavigateWebStream += url => updatedUrl = url;
+
+        _viewModel.SwitchStreamingProvider("superembed");
+
+        Assert.Equal("superembed", _viewModel.StreamingProvider);
+        Assert.Contains("multiembed.mov/?video_id=550&tmdb=1", _viewModel.StreamingUrl);
+        Assert.Equal(_viewModel.StreamingUrl, updatedUrl);
+    }
+
+    [Fact]
+    public async Task CloseOnlineStream_ShouldResetStreamingProperties()
+    {
+        await _viewModel.StartWebStreamingAsync(550, "movie", null, null, "Fight Club", "vidlink");
+        Assert.True(_viewModel.IsStreamingOnline);
+
+        _viewModel.CloseOnlineStream();
+
+        Assert.False(_viewModel.IsStreamingOnline);
+        Assert.Empty(_viewModel.StreamingUrl);
+        Assert.Equal(0, _viewModel.StreamingTmdbId);
+        Assert.Equal("Nuvio Player", _viewModel.WindowTitle);
+    }
+
+    [Fact]
+    public async Task PlayOnlineStreamAsync_WithEmbedUrl_ShouldRedirectToWebStreaming()
+    {
+        string? navigatedUrl = null;
+        _viewModel.RequestNavigateWebStream += url => navigatedUrl = url;
+
+        await _viewModel.PlayOnlineStreamAsync("https://vidlink.pro/movie/550", "Fight Club");
+
+        Assert.True(_viewModel.IsStreamingOnline);
+        Assert.False(_viewModel.HasMedia);
+        Assert.Equal("https://vidlink.pro/movie/550", _viewModel.StreamingUrl);
+        Assert.Equal("https://vidlink.pro/movie/550", navigatedUrl);
+    }
 }
+

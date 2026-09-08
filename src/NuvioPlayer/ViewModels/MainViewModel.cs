@@ -15,6 +15,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly IMediaPlayerService _mediaPlayerService;
     private readonly IPlaylistService _playlistService;
     private readonly IDatabaseService _databaseService;
+    private readonly IDirectStreamResolverService _streamResolver;
     public PlaylistViewModel Playlist { get; }
 
     [ObservableProperty]
@@ -22,6 +23,27 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _mediaTitle = string.Empty;
+
+    [ObservableProperty]
+    private bool _isStreamingOnline;
+
+    [ObservableProperty]
+    private string _streamingUrl = string.Empty;
+
+    [ObservableProperty]
+    private string _streamingProvider = "vidlink";
+
+    [ObservableProperty]
+    private int _streamingTmdbId;
+
+    [ObservableProperty]
+    private string _streamingMediaType = "movie";
+
+    [ObservableProperty]
+    private int? _streamingSeason;
+
+    [ObservableProperty]
+    private int? _streamingEpisode;
 
     [ObservableProperty]
     private bool _hasMedia = false;
@@ -136,6 +158,7 @@ public partial class MainViewModel : ViewModelBase
     public event Action? RequestOpenSettings;
     public event Action? RequestOpenMediaInfo;
     public event Action? RequestOpenStreaming;
+    public event Action<string>? RequestNavigateWebStream;
 
     public MainViewModel(
         ILogger<MainViewModel> logger,
@@ -143,7 +166,8 @@ public partial class MainViewModel : ViewModelBase
         IMediaPlayerService mediaPlayerService,
         IPlaylistService playlistService,
         PlaylistViewModel playlist,
-        IDatabaseService databaseService)
+        IDatabaseService databaseService,
+        IDirectStreamResolverService? streamResolver = null)
     {
         _logger = logger;
         _settingsService = settingsService;
@@ -151,6 +175,7 @@ public partial class MainViewModel : ViewModelBase
         _playlistService = playlistService;
         Playlist = playlist;
         _databaseService = databaseService;
+        _streamResolver = streamResolver ?? new NuvioPlayer.Services.DirectStreamResolverService();
 
         _volume = _settingsService.Settings.Volume;
         _isMuted = _settingsService.Settings.IsMuted;
@@ -724,19 +749,102 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     public async Task OpenMediaFileAsync(string filePath)
     {
+        CloseOnlineStream();
         SetPlaybackRate(1.0);
         await _mediaPlayerService.OpenMediaAsync(filePath);
         await CheckAndPromptResumeAsync(filePath);
     }
 
+    public async Task StartWebStreamingAsync(
+        int tmdbId,
+        string mediaType,
+        int? season,
+        int? episode,
+        string title,
+        string provider = "vidlink")
+    {
+        _mediaPlayerService.Stop();
+        HasMedia = false;
+
+        StreamingTmdbId = tmdbId;
+        StreamingMediaType = mediaType;
+        StreamingSeason = season;
+        StreamingEpisode = episode;
+        StreamingProvider = provider;
+        MediaTitle = title;
+        WindowTitle = $"{title} — Nuvio Player";
+
+        string url = _streamResolver.GetEmbedFallbackUrl(tmdbId, mediaType, season, episode, provider);
+        StreamingUrl = url;
+        IsStreamingOnline = true;
+
+        RequestNavigateWebStream?.Invoke(url);
+        ShowOsd($"Streaming online: {title}", 3000);
+    }
+
+    [RelayCommand]
+    public void SwitchStreamingProvider(string newProvider)
+    {
+        if (StreamingTmdbId == 0) return;
+        StreamingProvider = newProvider;
+        string url = _streamResolver.GetEmbedFallbackUrl(
+            StreamingTmdbId,
+            StreamingMediaType,
+            StreamingSeason,
+            StreamingEpisode,
+            newProvider);
+
+        StreamingUrl = url;
+        RequestNavigateWebStream?.Invoke(url);
+        ShowOsd($"Switched server to {newProvider.ToUpperInvariant()}", 2000);
+    }
+
+    [RelayCommand]
+    public void CloseOnlineStream()
+    {
+        IsStreamingOnline = false;
+        StreamingUrl = string.Empty;
+        StreamingTmdbId = 0;
+        MediaTitle = string.Empty;
+        WindowTitle = "Nuvio Player";
+    }
+
     public async Task PlayOnlineStreamAsync(string streamUrl, string title)
     {
+        if (IsEmbedUrl(streamUrl))
+        {
+            // Redirect embed URLs to in-player web streaming instead of LibVLC
+            _mediaPlayerService.Stop();
+            HasMedia = false;
+            MediaTitle = title;
+            WindowTitle = $"{title} — Nuvio Player";
+            StreamingUrl = streamUrl;
+            IsStreamingOnline = true;
+            RequestNavigateWebStream?.Invoke(streamUrl);
+            ShowOsd($"Streaming online: {title}", 3000);
+            return;
+        }
+
+        CloseOnlineStream();
         SetPlaybackRate(1.0);
         MediaTitle = title;
         WindowTitle = $"{title} — Nuvio Player";
         await _mediaPlayerService.OpenMediaAsync(streamUrl);
         HasMedia = true;
         ShowOsd($"Streaming: {title}", 3000);
+    }
+
+    private static bool IsEmbedUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return false;
+        string lower = url.ToLowerInvariant();
+        return lower.Contains("vidlink.pro") ||
+               lower.Contains("vidsrc") ||
+               lower.Contains("multiembed.mov") ||
+               lower.Contains("autoembed") ||
+               lower.Contains("vidking.net") ||
+               lower.Contains("embed.su") ||
+               lower.Contains("superembed");
     }
 
     public async Task CheckAndPromptResumeAsync(string path)

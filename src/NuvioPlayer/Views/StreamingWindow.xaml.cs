@@ -20,6 +20,10 @@ public partial class StreamingWindow : Window
             // Close streaming modal so the user returns seamlessly to the main player
             Close();
         };
+        _viewModel.PlayWebStreamRequested += (id, type, s, ep, title, prov) =>
+        {
+            Close();
+        };
 
         Loaded += async (s, e) =>
         {

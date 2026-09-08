@@ -501,10 +501,34 @@ public partial class MainWindow : Window
         }
     }
 
+    private static bool IsInteractiveControl(DependencyObject? element)
+    {
+        while (element != null && element is not MainWindow)
+        {
+            if (element is ButtonBase || element is Slider || element is Thumb ||
+                element is TextBoxBase || element is ListBoxItem || element is ListBox ||
+                element is ContextMenu || element is MenuItem || element is ProgressBar)
+                return true;
+
+            if (element is FrameworkElement fe && 
+                (fe.Name == "ControlsHud" || fe.Name == "TopOverlayBar" || fe.Name == "ResumePromptBanner"))
+                return true;
+
+            element = VisualTreeHelper.GetParent(element);
+        }
+        return false;
+    }
+
     private void OnVideoOverlayMouseDown(object sender, MouseButtonEventArgs e)
     {
         this.Focus();
         OnUserActivityDetected();
+
+        if (IsInteractiveControl(e.OriginalSource as DependencyObject))
+        {
+            _isMouseDownOnVideo = false;
+            return;
+        }
 
         if (e.ChangedButton == MouseButton.Left)
         {
@@ -556,12 +580,15 @@ public partial class MainWindow : Window
         if (_isMouseDownOnVideo && e.ChangedButton == MouseButton.Left)
         {
             _isMouseDownOnVideo = false;
-            // Check if clicked directly on video canvas or overlay grid (not on interactive buttons/sliders)
-            if (e.OriginalSource == VideoOverlayGrid || e.OriginalSource is Grid || e.OriginalSource == PlayerVideoView)
+            if (!IsInteractiveControl(e.OriginalSource as DependencyObject))
             {
                 _viewModel.TogglePlayPauseCommand.Execute(null);
                 e.Handled = true;
             }
+        }
+        else
+        {
+            _isMouseDownOnVideo = false;
         }
     }
 
@@ -1057,6 +1084,13 @@ public partial class MainWindow : Window
         PlayPauseIconPath.Data = _viewModel.IsPlaying
             ? (Geometry)FindResource("IconPause")
             : (Geometry)FindResource("IconPlay");
+
+        if (PlayPauseViewbox != null)
+        {
+            PlayPauseViewbox.Margin = _viewModel.IsPlaying
+                ? new Thickness(0)
+                : new Thickness(2, 0, 0, 0);
+        }
     }
 
     private void UpdateVolumeVisuals()

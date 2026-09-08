@@ -224,7 +224,8 @@
                         </Grid.ContextMenu>
 
                         <!-- Top Floating Header Bar (Auto-hides during playback) -->
-                        <Border VerticalAlignment="Top"
+                        <Border x:Name="TopOverlayBar"
+                                VerticalAlignment="Top"
                                 HorizontalAlignment="Stretch"
                                 Background="{StaticResource BrushHudBackground}"
                                 BorderBrush="{StaticResource BrushHudBorder}"
@@ -452,13 +453,14 @@
                                         </Button>
 
                                         <!-- Big Play / Pause Button -->
-                                        <Button Style="{StaticResource PlayRoundButton}"
+                                        <Button x:Name="PlayPauseButton"
+                                                Style="{StaticResource PlayRoundButton}"
                                                 Command="{Binding TogglePlayPauseCommand}"
                                                 Margin="8,0"
                                                 ToolTip="Play / Pause (Space)">
-                                            <Viewbox Width="18" Height="18">
+                                            <Viewbox x:Name="PlayPauseViewbox" Width="16" Height="16" Margin="2,0,0,0">
                                                 <Path x:Name="PlayPauseIconPath"
-                                                      Fill="#0B0D11"
+                                                      Fill="{StaticResource BrushTextPrimary}"
                                                       Data="{StaticResource IconPlay}"/>
                                             </Viewbox>
                                         </Button>
@@ -534,16 +536,6 @@
 
                                     <!-- Right: Features Toolbar -->
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <!-- Aspect Ratio Button -->
-                                        <Button Style="{StaticResource IconButton}"
-                                                Command="{Binding CycleAspectRatioCommand}"
-                                                ToolTip="Aspect Ratio"
-                                                Margin="0,0,4,0">
-                                            <Viewbox Width="16" Height="16">
-                                                <Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconAspectRatio}"/>
-                                            </Viewbox>
-                                        </Button>
-
                                         <!-- Playback Speed Button -->
                                         <Button Style="{StaticResource IconButton}"
                                                 Command="{Binding CyclePlaybackRateCommand}"
@@ -566,15 +558,6 @@
                                                 Margin="0,0,4,0">
                                             <Viewbox Width="16" Height="16">
                                                 <Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconSubtitles}"/>
-                                            </Viewbox>
-                                        </Button>
-
-                                        <!-- Screenshot -->
-                                        <Button Style="{StaticResource IconButton}"
-                                                Command="{Binding TakeScreenshotCommand}"
-                                                ToolTip="Take Screenshot (F12)">
-                                            <Viewbox Width="16" Height="16">
-                                                <Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconCamera}"/>
                                             </Viewbox>
                                         </Button>
 

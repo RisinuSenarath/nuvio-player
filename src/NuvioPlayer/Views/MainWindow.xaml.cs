@@ -538,7 +538,7 @@ public partial class MainWindow : Window
             if (e.ClickCount == 2)
             {
                 _isMouseDownOnVideo = false;
-                _viewModel.ToggleFullscreenCommand.Execute(null);
+                _viewModel.TogglePlayPauseCommand.Execute(null);
                 e.Handled = true;
             }
         }
@@ -577,19 +577,7 @@ public partial class MainWindow : Window
 
     private void OnVideoOverlayMouseUp(object sender, MouseButtonEventArgs e)
     {
-        if (_isMouseDownOnVideo && e.ChangedButton == MouseButton.Left)
-        {
-            _isMouseDownOnVideo = false;
-            if (!IsInteractiveControl(e.OriginalSource as DependencyObject))
-            {
-                _viewModel.TogglePlayPauseCommand.Execute(null);
-                e.Handled = true;
-            }
-        }
-        else
-        {
-            _isMouseDownOnVideo = false;
-        }
+        _isMouseDownOnVideo = false;
     }
 
     private void OnVideoOverlayMouseWheel(object sender, MouseWheelEventArgs e)

@@ -51,6 +51,12 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "dotnet publish failed!"
 }
 
+# Remove unused 32-bit LibVLC folder to reduce installer size and compilation time
+$unusedX86 = Join-Path $PublishDir "libvlc\win-x86"
+if (Test-Path $unusedX86) {
+    Remove-Item -Recurse -Force $unusedX86
+}
+
 # 3. Verify Native Dependencies
 Write-Host "`n[3/4] Verifying published distribution..." -ForegroundColor Yellow
 $exePath = Join-Path $PublishDir "NuvioPlayer.exe"

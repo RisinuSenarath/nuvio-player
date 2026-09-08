@@ -51,7 +51,9 @@
                             HorizontalAlignment="Stretch"
                             Background="Transparent"
                             Padding="16,10"
-                            MouseDown="OnTopBarMouseDown">
+                            MouseDown="OnTopBarMouseDown"
+                            MouseMove="OnTopBarMouseMove"
+                            MouseUp="OnTopBarMouseUp">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -229,6 +231,8 @@
                                 BorderThickness="0,0,0,1"
                                 Padding="14,6"
                                 MouseDown="OnTopBarMouseDown"
+                                MouseMove="OnTopBarMouseMove"
+                                MouseUp="OnTopBarMouseUp"
                                 Visibility="{Binding AreControlsVisible, Converter={StaticResource BoolToVisConverter}}">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -510,7 +514,7 @@
                                                 Style="{StaticResource ModernVolumeSlider}"
                                                 Width="80"
                                                 Minimum="0"
-                                                Maximum="100"
+                                                Maximum="150"
                                                 Value="{Binding Volume, Mode=TwoWay}"
                                                 VerticalAlignment="Center"
                                                 Margin="6,0,0,0"

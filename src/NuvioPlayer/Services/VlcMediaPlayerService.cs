@@ -47,7 +47,7 @@ public class VlcMediaPlayerService : IMediaPlayerService
         {
             if (_mediaPlayer != null)
             {
-                int clamped = Math.Clamp(value, 0, 100);
+                int clamped = Math.Clamp(value, 0, 150);
                 _mediaPlayer.Volume = clamped;
                 _settingsService.Settings.Volume = clamped;
             }
@@ -149,6 +149,11 @@ public class VlcMediaPlayerService : IMediaPlayerService
 
         _mediaPlayer.Playing += (s, e) => Dispatch(() =>
         {
+            if (_mediaPlayer != null)
+            {
+                _mediaPlayer.Volume = _settingsService.Settings.Volume;
+                _mediaPlayer.Mute = _settingsService.Settings.IsMuted;
+            }
             State = PlaybackState.Playing;
             StateChanged?.Invoke(this, State);
             RefreshTracks();

@@ -34,6 +34,10 @@ public partial class MainWindow : Window
     private bool _isMouseDownOnVideo = false;
     private bool _isDraggingSeek = false;
 
+    private Point _topBarMouseDownPos;
+    private double _topBarPercentX = 0.5;
+    private bool _isTopBarPressed = false;
+
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT
     {
@@ -44,6 +48,9 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetCursorPos(out POINT lpPoint);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern IntPtr GetAncestor(IntPtr hwnd, uint gaFlags);
 
     // DWM Window Attributes (Windows 11)
     [DllImport("dwmapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
@@ -72,6 +79,9 @@ public partial class MainWindow : Window
     private const int GCLP_HBRBACKGROUND = -10;
     private const int WM_ERASEBKGND = 0x0014;
     private const int WM_GETMINMAXINFO = 0x0024;
+    private const int WM_KEYDOWN = 0x0100;
+    private const int WM_SYSKEYDOWN = 0x0104;
+    private const uint GA_ROOT = 2;
     private const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -155,6 +165,24 @@ public partial class MainWindow : Window
         Closing += OnWindowClosing;
         MouseMove += OnWindowMouseMove;
         PreviewKeyDown += OnWindowPreviewKeyDown;
+
+        LocationChanged += (s, e) =>
+        {
+            if (WindowState == WindowState.Normal)
+            {
+                _previousWindowRect = new Rect(Left, Top, ActualWidth > 0 ? ActualWidth : Width, ActualHeight > 0 ? ActualHeight : Height);
+            }
+        };
+
+        SizeChanged += (s, e) =>
+        {
+            if (WindowState == WindowState.Normal)
+            {
+                _previousWindowRect = new Rect(Left, Top, ActualWidth, ActualHeight);
+            }
+        };
+
+        ComponentDispatcher.ThreadPreprocessMessage += OnThreadPreprocessMessage;
 
         // Drag & Drop
         Drop += OnWindowDrop;
@@ -326,18 +354,95 @@ public partial class MainWindow : Window
         {
             if (e.ClickCount == 2)
             {
+                _isTopBarPressed = false;
                 ToggleMaximizeRestore();
             }
             else
             {
-                try
+                if (WindowState == WindowState.Maximized)
                 {
-                    DragMove();
+                    _isTopBarPressed = true;
+                    _topBarMouseDownPos = e.GetPosition(this);
+                    _topBarPercentX = _topBarMouseDownPos.X / Math.Max(1.0, ActualWidth);
                 }
-                catch
+                else
                 {
-                    // Ignored if window drag is interrupted
+                    try
+                    {
+                        DragMove();
+                    }
+                    catch
+                    {
+                        // Ignored if window drag is interrupted
+                    }
                 }
+            }
+        }
+    }
+
+    private void OnTopBarMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_isTopBarPressed && e.LeftButton == MouseButtonState.Pressed && WindowState == WindowState.Maximized && !_viewModel.IsFullscreen)
+        {
+            Point currentPos = e.GetPosition(this);
+            Vector diff = currentPos - _topBarMouseDownPos;
+            if (Math.Abs(diff.X) > 6 || Math.Abs(diff.Y) > 6)
+            {
+                _isTopBarPressed = false;
+                RestoreFromMaximizedDrag(_topBarPercentX);
+                e.Handled = true;
+            }
+        }
+        else if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            _isTopBarPressed = false;
+        }
+    }
+
+    private void OnTopBarMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.Left)
+        {
+            _isTopBarPressed = false;
+        }
+    }
+
+    private void RestoreFromMaximizedDrag(double percentX)
+    {
+        double restoredWidth = _previousWindowRect.Width > 200 ? _previousWindowRect.Width : _settingsService.Settings.WindowWidth;
+        if (restoredWidth < MinWidth || restoredWidth > SystemParameters.VirtualScreenWidth)
+        {
+            restoredWidth = 1200;
+        }
+
+        double restoredHeight = _previousWindowRect.Height > 200 ? _previousWindowRect.Height : _settingsService.Settings.WindowHeight;
+        if (restoredHeight < MinHeight || restoredHeight > SystemParameters.VirtualScreenHeight)
+        {
+            restoredHeight = 720;
+        }
+
+        percentX = Math.Clamp(percentX, 0.05, 0.95);
+
+        if (GetCursorPos(out POINT cursorPt))
+        {
+            var dpi = VisualTreeHelper.GetDpi(this);
+            double cursorDipX = cursorPt.X / (dpi.DpiScaleX > 0 ? dpi.DpiScaleX : 1.0);
+            double cursorDipY = cursorPt.Y / (dpi.DpiScaleY > 0 ? dpi.DpiScaleY : 1.0);
+
+            WindowState = WindowState.Normal;
+            Width = restoredWidth;
+            Height = restoredHeight;
+            Left = cursorDipX - (restoredWidth * percentX);
+            Top = cursorDipY - 16;
+            SetWindowCornerPreference(true);
+
+            try
+            {
+                DragMove();
+            }
+            catch
+            {
+                // Ignored if drag operation is cancelled or interrupted
             }
         }
     }
@@ -398,6 +503,7 @@ public partial class MainWindow : Window
 
     private void OnVideoOverlayMouseDown(object sender, MouseButtonEventArgs e)
     {
+        this.Focus();
         OnUserActivityDetected();
 
         if (e.ChangedButton == MouseButton.Left)
@@ -425,13 +531,20 @@ public partial class MainWindow : Window
             if (Math.Abs(diff.X) > 8 || Math.Abs(diff.Y) > 8)
             {
                 _isMouseDownOnVideo = false;
-                try
+                if (WindowState == WindowState.Maximized)
                 {
-                    DragMove();
+                    RestoreFromMaximizedDrag(_mouseDownPos.X / Math.Max(1.0, ActualWidth));
                 }
-                catch
+                else
                 {
-                    // Ignored
+                    try
+                    {
+                        DragMove();
+                    }
+                    catch
+                    {
+                        // Ignored
+                    }
                 }
                 e.Handled = true;
             }
@@ -472,6 +585,22 @@ public partial class MainWindow : Window
     private void OnWindowMouseMove(object sender, MouseEventArgs e)
     {
         OnUserActivityDetected();
+
+        if (_isTopBarPressed && e.LeftButton == MouseButtonState.Pressed && WindowState == WindowState.Maximized && !_viewModel.IsFullscreen)
+        {
+            Point currentPos = e.GetPosition(this);
+            Vector diff = currentPos - _topBarMouseDownPos;
+            if (Math.Abs(diff.X) > 6 || Math.Abs(diff.Y) > 6)
+            {
+                _isTopBarPressed = false;
+                RestoreFromMaximizedDrag(_topBarPercentX);
+                e.Handled = true;
+            }
+        }
+        else if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            _isTopBarPressed = false;
+        }
     }
 
     private void OnInactivityTick(object? sender, EventArgs e)
@@ -487,13 +616,73 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnThreadPreprocessMessage(ref MSG msg, ref bool handled)
+    {
+        if (handled) return;
+
+        if (msg.message == WM_KEYDOWN || msg.message == WM_SYSKEYDOWN)
+        {
+            if (ComponentDispatcher.IsThreadModal)
+            {
+                return;
+            }
+
+            if (Keyboard.FocusedElement is TextBoxBase)
+            {
+                return;
+            }
+
+            var helper = new WindowInteropHelper(this);
+            IntPtr mainHwnd = helper.Handle;
+            if (mainHwnd != IntPtr.Zero)
+            {
+                IntPtr rootHwnd = GetAncestor(msg.hwnd, GA_ROOT);
+                var fgWindow = GetVlcForegroundWindow();
+                IntPtr fgHwnd = fgWindow != null ? new WindowInteropHelper(fgWindow).Handle : IntPtr.Zero;
+
+                if (rootHwnd != mainHwnd && rootHwnd != fgHwnd && msg.hwnd != mainHwnd && msg.hwnd != fgHwnd)
+                {
+                    return;
+                }
+            }
+
+            Key key = KeyInterop.KeyFromVirtualKey((int)msg.wParam);
+            if (HandlePlayerKey(key))
+            {
+                handled = true;
+            }
+        }
+    }
+
     private void OnWindowPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        switch (e.Key)
+        if (Keyboard.FocusedElement is TextBoxBase)
+        {
+            return;
+        }
+
+        Key key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (HandlePlayerKey(key))
+        {
+            e.Handled = true;
+        }
+    }
+
+    private bool HandlePlayerKey(Key key)
+    {
+        bool handled = false;
+
+        switch (key)
         {
             case Key.Space:
+            case Key.MediaPlayPause:
                 _viewModel.TogglePlayPauseCommand.Execute(null);
-                e.Handled = true;
+                handled = true;
+                break;
+
+            case Key.MediaStop:
+                _viewModel.StopCommand.Execute(null);
+                handled = true;
                 break;
 
             case Key.Left:
@@ -501,7 +690,7 @@ public partial class MainWindow : Window
                     ? -_settingsService.Settings.LongSeekSeconds
                     : -_settingsService.Settings.ShortSeekSeconds;
                 _viewModel.SeekRelativeCommand.Execute(seekBack);
-                e.Handled = true;
+                handled = true;
                 break;
 
             case Key.Right:
@@ -509,70 +698,73 @@ public partial class MainWindow : Window
                     ? _settingsService.Settings.LongSeekSeconds
                     : _settingsService.Settings.ShortSeekSeconds;
                 _viewModel.SeekRelativeCommand.Execute(seekFwd);
-                e.Handled = true;
+                handled = true;
                 break;
 
             case Key.Up:
+            case Key.VolumeUp:
                 _viewModel.ChangeVolumeCommand.Execute(5);
-                e.Handled = true;
+                handled = true;
                 break;
 
             case Key.Down:
+            case Key.VolumeDown:
                 _viewModel.ChangeVolumeCommand.Execute(-5);
-                e.Handled = true;
+                handled = true;
                 break;
 
             case Key.M:
+            case Key.VolumeMute:
                 _viewModel.ToggleMuteCommand.Execute(null);
-                e.Handled = true;
+                handled = true;
                 break;
 
             case Key.F:
                 _viewModel.ToggleFullscreenCommand.Execute(null);
-                e.Handled = true;
+                handled = true;
                 break;
 
             case Key.Escape:
                 if (_viewModel.IsFullscreen)
                 {
                     _viewModel.IsFullscreen = false;
-                    e.Handled = true;
+                    handled = true;
                 }
                 break;
 
             case Key.S:
                 _viewModel.ToggleSubtitlesCommand.Execute(null);
-                e.Handled = true;
+                handled = true;
                 break;
 
             case Key.G:
                 _viewModel.AdjustSubtitleDelayCommand.Execute(-50);
-                e.Handled = true;
+                handled = true;
                 break;
 
             case Key.H:
                 _viewModel.AdjustSubtitleDelayCommand.Execute(50);
-                e.Handled = true;
+                handled = true;
                 break;
 
             case Key.J:
                 _viewModel.AdjustAudioDelayCommand.Execute(-50);
-                e.Handled = true;
+                handled = true;
                 break;
 
             case Key.K:
                 _viewModel.AdjustAudioDelayCommand.Execute(50);
-                e.Handled = true;
+                handled = true;
                 break;
 
             case Key.I:
                 _viewModel.OpenMediaInfoCommand.Execute(null);
-                e.Handled = true;
+                handled = true;
                 break;
 
             case Key.F12:
                 _viewModel.TakeScreenshotCommand.Execute(null);
-                e.Handled = true;
+                handled = true;
                 break;
 
             case Key.O:
@@ -586,7 +778,7 @@ public partial class MainWindow : Window
                     {
                         OnRequestOpenFile();
                     }
-                    e.Handled = true;
+                    handled = true;
                 }
                 break;
 
@@ -594,20 +786,33 @@ public partial class MainWindow : Window
                 if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
                 {
                     _viewModel.TogglePlaylistCommand.Execute(null);
-                    e.Handled = true;
+                    handled = true;
                 }
                 else
                 {
                     _viewModel.PreviousCommand.Execute(null);
-                    e.Handled = true;
+                    handled = true;
                 }
                 break;
 
+            case Key.MediaPreviousTrack:
+                _viewModel.PreviousCommand.Execute(null);
+                handled = true;
+                break;
+
             case Key.N:
+            case Key.MediaNextTrack:
                 _viewModel.NextCommand.Execute(null);
-                e.Handled = true;
+                handled = true;
                 break;
         }
+
+        if (handled)
+        {
+            OnUserActivityDetected();
+        }
+
+        return handled;
     }
 
     private void OnWindowDrop(object sender, DragEventArgs e)
@@ -663,6 +868,7 @@ public partial class MainWindow : Window
 
     private void OnWindowClosing(object? sender, CancelEventArgs e)
     {
+        ComponentDispatcher.ThreadPreprocessMessage -= OnThreadPreprocessMessage;
         SaveWindowBounds();
         _inactivityTimer.Stop();
         _cursorPollTimer.Stop();
@@ -807,6 +1013,12 @@ public partial class MainWindow : Window
     private void UpdateVideoOverlayVisibility()
     {
         var fgWindow = GetVlcForegroundWindow();
+        if (fgWindow != null)
+        {
+            fgWindow.PreviewKeyDown -= OnForegroundWindowPreviewKeyDown;
+            fgWindow.PreviewKeyDown += OnForegroundWindowPreviewKeyDown;
+        }
+
         if (_viewModel.HasMedia)
         {
             VideoOverlayGrid.Visibility = Visibility.Visible;
@@ -822,6 +1034,20 @@ public partial class MainWindow : Window
             {
                 fgWindow.Visibility = Visibility.Collapsed;
             }
+        }
+    }
+
+    private void OnForegroundWindowPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.FocusedElement is TextBoxBase)
+        {
+            return;
+        }
+
+        Key key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (HandlePlayerKey(key))
+        {
+            e.Handled = true;
         }
     }
 

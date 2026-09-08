@@ -136,10 +136,22 @@ public class MainViewModelTests
     {
         _viewModel.Volume = 95;
         _viewModel.ChangeVolumeCommand.Execute(10);
-        Assert.Equal(100, _viewModel.Volume);
+        Assert.Equal(105, _viewModel.Volume);
 
-        _viewModel.ChangeVolumeCommand.Execute(-150);
+        _viewModel.ChangeVolumeCommand.Execute(60);
+        Assert.Equal(150, _viewModel.Volume);
+
+        _viewModel.ChangeVolumeCommand.Execute(-200);
         Assert.Equal(0, _viewModel.Volume);
+    }
+
+    [Fact]
+    public void ChangeVolume_WhenOver100_ShouldShowBoostOsd()
+    {
+        _viewModel.Volume = 110;
+        _viewModel.ChangeVolumeCommand.Execute(5);
+        Assert.Equal(115, _viewModel.Volume);
+        Assert.Contains("Boost", _viewModel.OsdMessage);
     }
 
     [Fact]

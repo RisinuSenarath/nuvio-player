@@ -193,7 +193,7 @@
                             <TextBlock Text="Audio Settings" FontSize="16" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
 
                             <TextBlock Text="Default Volume (%)" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
-                            <Slider Minimum="0" Maximum="100" Value="{Binding DefaultVolume}" Width="200" HorizontalAlignment="Left" Style="{StaticResource ModernVolumeSlider}" Margin="0,0,0,6"/>
+                            <Slider Minimum="0" Maximum="150" Value="{Binding DefaultVolume}" Width="200" HorizontalAlignment="Left" Style="{StaticResource ModernVolumeSlider}" Margin="0,0,0,6"/>
                             <TextBlock Text="{Binding DefaultVolume, StringFormat='{}{0}%'}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" Margin="0,0,0,16"/>
                         </StackPanel>
 

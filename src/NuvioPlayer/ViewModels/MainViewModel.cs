@@ -66,7 +66,7 @@ public partial class MainViewModel : ViewModelBase
     private string _durationText = "00:00";
 
     [ObservableProperty]
-    private int _volume = 80;
+    private int _volume = 100;
 
     [ObservableProperty]
     private bool _isMuted = false;
@@ -394,10 +394,19 @@ public partial class MainViewModel : ViewModelBase
         ShowOsd(IsMuted ? "Muted" : $"Volume {Volume}%", 1200);
     }
 
+    partial void OnVolumeChanged(int value)
+    {
+        int clamped = Math.Clamp(value, 0, 150);
+        if (_mediaPlayerService.Volume != clamped)
+        {
+            _mediaPlayerService.Volume = clamped;
+        }
+    }
+
     [RelayCommand]
     public void ChangeVolume(int delta)
     {
-        int newVolume = Math.Clamp(Volume + delta, 0, 100);
+        int newVolume = Math.Clamp(Volume + delta, 0, 150);
         Volume = newVolume;
         _mediaPlayerService.Volume = newVolume;
         if (IsMuted && newVolume > 0)
@@ -405,13 +414,14 @@ public partial class MainViewModel : ViewModelBase
             IsMuted = false;
             _mediaPlayerService.IsMuted = false;
         }
-        ShowOsd($"Volume {Volume}%", 1200);
+        string boost = Volume > 100 ? " (Boost)" : "";
+        ShowOsd($"Volume {Volume}%{boost}", 1200);
     }
 
     [RelayCommand]
     public void SetVolumeDirect(int value)
     {
-        Volume = Math.Clamp(value, 0, 100);
+        Volume = Math.Clamp(value, 0, 150);
         _mediaPlayerService.Volume = Volume;
     }
 

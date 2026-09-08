@@ -729,19 +729,16 @@ public partial class MainWindow : Window
                 break;
 
             case Key.Up:
-            case Key.VolumeUp:
                 _viewModel.ChangeVolumeCommand.Execute(5);
                 handled = true;
                 break;
 
             case Key.Down:
-            case Key.VolumeDown:
                 _viewModel.ChangeVolumeCommand.Execute(-5);
                 handled = true;
                 break;
 
             case Key.M:
-            case Key.VolumeMute:
                 _viewModel.ToggleMuteCommand.Execute(null);
                 handled = true;
                 break;
@@ -1087,9 +1084,7 @@ public partial class MainWindow : Window
 
         if (PlayPauseViewbox != null)
         {
-            PlayPauseViewbox.Margin = _viewModel.IsPlaying
-                ? new Thickness(0)
-                : new Thickness(2, 0, 0, 0);
+            PlayPauseViewbox.Margin = new Thickness(0);
         }
     }
 

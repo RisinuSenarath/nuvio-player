@@ -192,9 +192,10 @@
         </Setter>
     </Style>
 
-    <!-- Big Play/Pause Center Button (Borderless with Blue Accent Icon) -->
+    <!-- Big Play/Pause Center Button (Borderless Blue Icon, Pure Transparent, No Background/Shadow) -->
     <Style x:Key="PlayRoundButton" TargetType="{x:Type Button}">
         <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -206,20 +207,21 @@
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type Button}">
                     <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            CornerRadius="6"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            BorderThickness="0"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{StaticResource BrushSurfaceHover}"/>
+                            <Setter Property="Opacity" Value="0.8"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{StaticResource BrushSurfaceActive}"/>
+                            <Setter Property="Opacity" Value="0.6"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.4"/>
+                            <Setter Property="Opacity" Value="0.3"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

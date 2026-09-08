@@ -140,12 +140,23 @@
                                 </Button>
                                 <Button Style="{StaticResource SecondaryButton}"
                                         Command="{Binding OpenFolderCommand}"
+                                        Margin="0,0,12,0"
                                         Padding="18,10">
                                     <StackPanel Orientation="Horizontal">
                                         <Viewbox Width="16" Height="16" Margin="0,0,8,0">
                                             <Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconFolder}"/>
                                         </Viewbox>
                                         <TextBlock Text="Open Folder"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding OpenStreamingCommand}"
+                                        Padding="18,10">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Viewbox Width="16" Height="16" Margin="0,0,8,0">
+                                            <Path Fill="{StaticResource BrushAccent}" Data="{StaticResource IconStream}"/>
+                                        </Viewbox>
+                                        <TextBlock Text="Stream Online"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -180,6 +191,7 @@
                                 <MenuItem Header="Play / Pause" Command="{Binding TogglePlayPauseCommand}" InputGestureText="Space"/>
                                 <MenuItem Header="Open File..." Command="{Binding OpenFileCommand}" InputGestureText="Ctrl+O"/>
                                 <MenuItem Header="Open Folder..." Command="{Binding OpenFolderCommand}" InputGestureText="Ctrl+Shift+O"/>
+                                <MenuItem Header="Stream Online..." Command="{Binding OpenStreamingCommand}"/>
                                 <MenuItem Header="Playlist" Command="{Binding TogglePlaylistCommand}" InputGestureText="Ctrl+P"/>
                                 <Separator/>
                                 <MenuItem x:Name="AudioTrackMenuItem" Header="Audio Track"/>
@@ -568,6 +580,16 @@
                                                 ToolTip="Media Information (I)">
                                             <Viewbox Width="16" Height="16">
                                                 <Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconInfo}"/>
+                                            </Viewbox>
+                                        </Button>
+
+                                        <!-- Stream Online -->
+                                        <Button Style="{StaticResource IconButton}"
+                                                Command="{Binding OpenStreamingCommand}"
+                                                ToolTip="Explore &amp; Stream Online"
+                                                Margin="0,0,4,0">
+                                            <Viewbox Width="16" Height="16">
+                                                <Path Fill="{StaticResource BrushAccent}" Data="{StaticResource IconStream}"/>
                                             </Viewbox>
                                         </Button>
 

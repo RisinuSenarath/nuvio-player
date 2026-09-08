@@ -114,15 +114,19 @@ public partial class App : Application
         services.AddSingleton<ICommandLineService, CommandLineService>();
         services.AddSingleton<ISingleInstanceService, SingleInstanceService>();
         services.AddSingleton<IFileAssociationService, WindowsFileAssociationService>();
+        services.AddSingleton<ITmdbService, TmdbService>();
+        services.AddSingleton<IDirectStreamResolverService, DirectStreamResolverService>();
 
         // ViewModels
         services.AddSingleton<PlaylistViewModel>();
         services.AddSingleton<MainViewModel>();
         services.AddTransient<SettingsViewModel>();
+        services.AddTransient<StreamingViewModel>();
 
         // Views
         services.AddSingleton<MainWindow>();
         services.AddTransient<SettingsWindow>();
+        services.AddTransient<StreamingWindow>();
     }
 
     protected override async void OnExit(ExitEventArgs e)

@@ -156,6 +156,7 @@ public partial class MainWindow : Window
         _viewModel.RequestOpenFolder += OnRequestOpenFolder;
         _viewModel.RequestOpenMediaInfo += OnRequestOpenMediaInfo;
         _viewModel.RequestOpenSettings += OnRequestOpenSettings;
+        _viewModel.RequestOpenStreaming += OnRequestOpenStreaming;
 
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
 
@@ -1203,6 +1204,17 @@ public partial class MainWindow : Window
     {
         var settingsVm = App.Services.GetRequiredService<SettingsViewModel>();
         var window = new SettingsWindow(settingsVm) { Owner = this };
+        window.ShowDialog();
+    }
+
+    private void OnRequestOpenStreaming()
+    {
+        var streamingVm = App.Services.GetRequiredService<StreamingViewModel>();
+        var window = new StreamingWindow(streamingVm) { Owner = this };
+        streamingVm.PlayRequested += async (url, title) =>
+        {
+            await _viewModel.PlayOnlineStreamAsync(url, title);
+        };
         window.ShowDialog();
     }
 

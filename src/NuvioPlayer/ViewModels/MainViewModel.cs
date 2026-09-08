@@ -135,6 +135,7 @@ public partial class MainViewModel : ViewModelBase
     public event Action? RequestOpenFolder;
     public event Action? RequestOpenSettings;
     public event Action? RequestOpenMediaInfo;
+    public event Action? RequestOpenStreaming;
 
     public MainViewModel(
         ILogger<MainViewModel> logger,
@@ -197,7 +198,10 @@ public partial class MainViewModel : ViewModelBase
         _mediaPlayerService.MediaOpened += (s, path) =>
         {
             HasMedia = true;
-            MediaTitle = _mediaPlayerService.CurrentMediaTitle ?? System.IO.Path.GetFileName(path);
+            if (string.IsNullOrEmpty(MediaTitle) || !path.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                MediaTitle = _mediaPlayerService.CurrentMediaTitle ?? System.IO.Path.GetFileName(path);
+            }
             WindowTitle = $"{MediaTitle} — Nuvio Player";
             ShowOsd($"Playing: {MediaTitle}");
         };
@@ -315,6 +319,9 @@ public partial class MainViewModel : ViewModelBase
 
     [RelayCommand]
     private void OpenMediaInfo() => RequestOpenMediaInfo?.Invoke();
+
+    [RelayCommand]
+    private void OpenStreaming() => RequestOpenStreaming?.Invoke();
 
     [RelayCommand]
     public void TogglePlayPause()
@@ -720,6 +727,16 @@ public partial class MainViewModel : ViewModelBase
         SetPlaybackRate(1.0);
         await _mediaPlayerService.OpenMediaAsync(filePath);
         await CheckAndPromptResumeAsync(filePath);
+    }
+
+    public async Task PlayOnlineStreamAsync(string streamUrl, string title)
+    {
+        SetPlaybackRate(1.0);
+        MediaTitle = title;
+        WindowTitle = $"{title} — Nuvio Player";
+        await _mediaPlayerService.OpenMediaAsync(streamUrl);
+        HasMedia = true;
+        ShowOsd($"Streaming: {title}", 3000);
     }
 
     public async Task CheckAndPromptResumeAsync(string path)

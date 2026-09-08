@@ -22,14 +22,14 @@
         <WindowChrome x:Name="WindowChromeElement"
                       CaptionHeight="0"
                       ResizeBorderThickness="8"
-                      CornerRadius="20"
+                      CornerRadius="28"
                       GlassFrameThickness="0"
                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
     <!-- Root Window Border with Rounded Corners in Windowed Mode -->
     <Border x:Name="RootBorder"
-            CornerRadius="20"
+            CornerRadius="28"
             BorderThickness="1"
             BorderBrush="{StaticResource BrushSurfaceBorderSubtle}"
             Background="{StaticResource BrushBackground}"

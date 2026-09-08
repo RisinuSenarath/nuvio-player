@@ -28,6 +28,9 @@ public partial class MainViewModel : ViewModelBase
     private bool _isStreamingOnline;
 
     [ObservableProperty]
+    private bool _isStreamTopBarVisible = true;
+
+    [ObservableProperty]
     private string _streamingUrl = string.Empty;
 
     [ObservableProperty]
@@ -778,6 +781,7 @@ public partial class MainViewModel : ViewModelBase
         string url = _streamResolver.GetEmbedFallbackUrl(tmdbId, mediaType, season, episode, provider);
         StreamingUrl = url;
         IsStreamingOnline = true;
+        IsStreamTopBarVisible = true;
 
         RequestNavigateWebStream?.Invoke(url);
         ShowOsd($"Streaming online: {title}", 3000);
@@ -804,6 +808,7 @@ public partial class MainViewModel : ViewModelBase
     public void CloseOnlineStream()
     {
         IsStreamingOnline = false;
+        IsStreamTopBarVisible = true;
         StreamingUrl = string.Empty;
         StreamingTmdbId = 0;
         MediaTitle = string.Empty;
@@ -822,6 +827,7 @@ public partial class MainViewModel : ViewModelBase
             WindowTitle = $"{title} — Nuvio Player";
             StreamingUrl = streamUrl;
             IsStreamingOnline = true;
+            IsStreamTopBarVisible = true;
             RequestNavigateWebStream?.Invoke(streamUrl);
             ShowOsd($"Streaming online: {title}", 3000);
             return;

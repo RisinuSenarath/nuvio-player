@@ -641,7 +641,7 @@
                             MouseDown="OnTopBarMouseDown"
                             MouseMove="OnTopBarMouseMove"
                             MouseUp="OnTopBarMouseUp"
-                            Visibility="{Binding AreControlsVisible, Converter={StaticResource BoolToVisConverter}}">
+                            Visibility="{Binding IsStreamTopBarVisible, Converter={StaticResource BoolToVisConverter}}">
                         <Grid VerticalAlignment="Center">
                             <Grid.ColumnDefinitions>
                                 <!-- Brand / Title -->

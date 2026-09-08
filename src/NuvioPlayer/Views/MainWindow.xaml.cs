@@ -24,6 +24,8 @@ public partial class MainWindow : Window
     private readonly ISettingsService _settingsService;
     private readonly DispatcherTimer _inactivityTimer;
     private readonly DispatcherTimer _cursorPollTimer;
+    private readonly DispatcherTimer _streamTopBarTimer;
+    private const double StreamTopBarTriggerHeight = 70.0;
     private POINT _lastGlobalCursorPos;
 
     private Rect _previousWindowRect = new Rect(100, 100, 1200, 720);
@@ -137,6 +139,13 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromSeconds(_settingsService.Settings.ControlsAutoHideDelaySeconds)
         };
         _inactivityTimer.Tick += OnInactivityTick;
+
+        // Auto-hide online stream top bar timer
+        _streamTopBarTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(1500)
+        };
+        _streamTopBarTimer.Tick += OnStreamTopBarTimerTick;
 
         // Cursor polling timer for detecting mouse activity even over unmanaged video surface
         _cursorPollTimer = new DispatcherTimer(DispatcherPriority.Input)
@@ -353,9 +362,17 @@ public partial class MainWindow : Window
             }
         };
 
-        StreamTopOverlayBar.MouseEnter += (s, e) => _inactivityTimer.Stop();
+        StreamTopOverlayBar.MouseEnter += (s, e) =>
+        {
+            _streamTopBarTimer.Stop();
+            _inactivityTimer.Stop();
+        };
         StreamTopOverlayBar.MouseLeave += (s, e) =>
         {
+            if (_viewModel.IsStreamingOnline && !_streamTopBarTimer.IsEnabled)
+            {
+                _streamTopBarTimer.Start();
+            }
             if (_viewModel.IsPlaying || _viewModel.IsStreamingOnline)
             {
                 _inactivityTimer.Start();
@@ -471,23 +488,46 @@ public partial class MainWindow : Window
 
         if (GetCursorPos(out POINT pt))
         {
-            if (pt.X != _lastGlobalCursorPos.X || pt.Y != _lastGlobalCursorPos.Y)
+            try
             {
-                _lastGlobalCursorPos = pt;
+                Point localPoint = PointFromScreen(new Point(pt.X, pt.Y));
+                bool isInside = localPoint.X >= 0 && localPoint.X <= ActualWidth &&
+                                localPoint.Y >= 0 && localPoint.Y <= ActualHeight;
 
-                try
+                if (isInside && _viewModel.IsStreamingOnline)
                 {
-                    Point localPoint = PointFromScreen(new Point(pt.X, pt.Y));
-                    if (localPoint.X >= 0 && localPoint.X <= ActualWidth &&
-                        localPoint.Y >= 0 && localPoint.Y <= ActualHeight)
+                    if (localPoint.Y <= StreamTopBarTriggerHeight)
+                    {
+                        // Cursor reached the top of the player!
+                        _streamTopBarTimer.Stop();
+                        if (!_viewModel.IsStreamTopBarVisible)
+                        {
+                            _viewModel.IsStreamTopBarVisible = true;
+                        }
+                    }
+                    else
+                    {
+                        // Cursor is outside the top zone
+                        if (_viewModel.IsStreamTopBarVisible && !_streamTopBarTimer.IsEnabled)
+                        {
+                            _streamTopBarTimer.Start();
+                        }
+                    }
+                }
+
+                if (pt.X != _lastGlobalCursorPos.X || pt.Y != _lastGlobalCursorPos.Y)
+                {
+                    _lastGlobalCursorPos = pt;
+
+                    if (isInside)
                     {
                         OnUserActivityDetected();
                     }
                 }
-                catch
-                {
-                    // Ignore during window state or minimize transitions
-                }
+            }
+            catch
+            {
+                // Ignore during window state or minimize transitions
             }
         }
     }
@@ -499,7 +539,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!_viewModel.AreControlsVisible)
+        if (_viewModel.HasMedia && !_viewModel.AreControlsVisible)
         {
             _viewModel.AreControlsVisible = true;
         }
@@ -636,7 +676,7 @@ public partial class MainWindow : Window
     private void OnInactivityTick(object? sender, EventArgs e)
     {
         _inactivityTimer.Stop();
-        if ((_viewModel.IsPlaying || _viewModel.IsStreamingOnline) && !_isDraggingSeek)
+        if (_viewModel.HasMedia && _viewModel.IsPlaying && !_isDraggingSeek)
         {
             _viewModel.AreControlsVisible = false;
             if (_viewModel.IsFullscreen)
@@ -644,6 +684,36 @@ public partial class MainWindow : Window
                 Cursor = Cursors.None;
             }
         }
+        else if (_viewModel.IsStreamingOnline)
+        {
+            if (_viewModel.IsFullscreen && !_viewModel.IsStreamTopBarVisible)
+            {
+                Cursor = Cursors.None;
+            }
+        }
+    }
+
+    private void OnStreamTopBarTimerTick(object? sender, EventArgs e)
+    {
+        _streamTopBarTimer.Stop();
+        _streamTopBarTimer.Interval = TimeSpan.FromMilliseconds(1500);
+
+        if (GetCursorPos(out POINT pt))
+        {
+            try
+            {
+                Point localPoint = PointFromScreen(new Point(pt.X, pt.Y));
+                if (localPoint.X >= 0 && localPoint.X <= ActualWidth &&
+                    localPoint.Y >= 0 && localPoint.Y <= StreamTopBarTriggerHeight)
+                {
+                    // User cursor is still at the top of the player, keep visible
+                    return;
+                }
+            }
+            catch { }
+        }
+
+        _viewModel.IsStreamTopBarVisible = false;
     }
 
     private void OnThreadPreprocessMessage(ref MSG msg, ref bool handled)
@@ -904,6 +974,7 @@ public partial class MainWindow : Window
         ComponentDispatcher.ThreadPreprocessMessage -= OnThreadPreprocessMessage;
         SaveWindowBounds();
         _inactivityTimer.Stop();
+        _streamTopBarTimer.Stop();
         _cursorPollTimer.Stop();
 
         if (_isWebBrowserInitialized)
@@ -1018,12 +1089,16 @@ public partial class MainWindow : Window
                 UpdateVideoOverlayVisibility();
                 if (_viewModel.IsStreamingOnline)
                 {
-                    _viewModel.AreControlsVisible = true;
+                    _viewModel.IsStreamTopBarVisible = true;
+                    _streamTopBarTimer.Interval = TimeSpan.FromSeconds(3);
+                    _streamTopBarTimer.Start();
                     _inactivityTimer.Start();
                 }
                 else
                 {
+                    _streamTopBarTimer.Stop();
                     _inactivityTimer.Stop();
+                    _viewModel.IsStreamTopBarVisible = true;
                     _viewModel.AreControlsVisible = true;
                     Cursor = Cursors.Arrow;
                 }
@@ -1148,7 +1223,9 @@ public partial class MainWindow : Window
             catch { }
         }
 
+        _streamTopBarTimer.Stop();
         _inactivityTimer.Stop();
+        _viewModel.IsStreamTopBarVisible = true;
         _viewModel.AreControlsVisible = true;
         Cursor = Cursors.Arrow;
         UpdateVideoOverlayVisibility();

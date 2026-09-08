@@ -192,38 +192,34 @@
         </Setter>
     </Style>
 
-    <!-- Big Play/Pause Center Button -->
+    <!-- Big Play/Pause Center Button (Borderless with Blue Accent Icon) -->
     <Style x:Key="PlayRoundButton" TargetType="{x:Type Button}">
-        <Setter Property="Background" Value="{StaticResource BrushSurface}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BrushSurfaceBorder}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Foreground" Value="{StaticResource BrushTextPrimary}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{StaticResource BrushAccent}"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-        <Setter Property="Width" Value="40"/>
-        <Setter Property="Height" Value="40"/>
+        <Setter Property="Padding" Value="6"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type Button}">
-                    <Border x:Name="circle"
+                    <Border x:Name="border"
                             Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="20"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Width="{TemplateBinding Width}"
-                            Height="{TemplateBinding Height}">
+                            CornerRadius="6"
+                            Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="circle" Property="Background" Value="{StaticResource BrushSurfaceHover}"/>
-                            <Setter TargetName="circle" Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                            <Setter TargetName="border" Property="Background" Value="{StaticResource BrushSurfaceHover}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="circle" Property="Background" Value="{StaticResource BrushSurfaceActive}"/>
-                            <Setter TargetName="circle" Property="BorderBrush" Value="{StaticResource BrushAccentActive}"/>
+                            <Setter TargetName="border" Property="Background" Value="{StaticResource BrushSurfaceActive}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

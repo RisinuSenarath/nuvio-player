@@ -452,15 +452,15 @@
                                             </Viewbox>
                                         </Button>
 
-                                        <!-- Big Play / Pause Button -->
+                                        <!-- Big Play / Pause Button (Borderless Blue Icon) -->
                                         <Button x:Name="PlayPauseButton"
                                                 Style="{StaticResource PlayRoundButton}"
                                                 Command="{Binding TogglePlayPauseCommand}"
-                                                Margin="8,0"
+                                                Margin="6,0"
                                                 ToolTip="Play / Pause (Space)">
-                                            <Viewbox x:Name="PlayPauseViewbox" Width="16" Height="16" Margin="2,0,0,0">
+                                            <Viewbox x:Name="PlayPauseViewbox" Width="20" Height="20" Margin="2,0,0,0">
                                                 <Path x:Name="PlayPauseIconPath"
-                                                      Fill="{StaticResource BrushTextPrimary}"
+                                                      Fill="{StaticResource BrushAccent}"
                                                       Data="{StaticResource IconPlay}"/>
                                             </Viewbox>
                                         </Button>

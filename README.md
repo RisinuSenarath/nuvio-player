@@ -120,8 +120,9 @@ Unlike legacy players laden with 90s-style skeuomorphic chrome or bloated menus,
 ### Building from Source
 
 ```powershell
-# Clone or navigate to the repository
-cd "C:\Users\RISINU\Documents\P\Nuvio Player"
+# Clone the repository
+git clone https://github.com/RisinuSenarath/nuvio-player.git
+cd nuvio-player
 
 # Restore dependencies and build in Debug configuration
 dotnet build NuvioPlayer.slnx

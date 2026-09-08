@@ -196,6 +196,36 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task SeekRelative_WhenPaused_ShouldUpdatePositionAndPositionSecondsImmediately()
+    {
+        await _viewModel.OpenMediaFileAsync(@"C:\Videos\test.mp4");
+        _viewModel.DurationSeconds = 300;
+        _viewModel.Duration = TimeSpan.FromSeconds(300);
+
+        // Pause media
+        _viewModel.TogglePlayPauseCommand.Execute(null);
+        Assert.False(_viewModel.IsPlaying);
+
+        _mockMediaService.Position = TimeSpan.FromSeconds(60);
+        _viewModel.PositionSeconds = 60;
+        _viewModel.Position = TimeSpan.FromSeconds(60);
+
+        // Seek forward 5s using arrow key command
+        _viewModel.SeekRelativeCommand.Execute(5);
+
+        Assert.Equal(65, _viewModel.PositionSeconds);
+        Assert.Equal(TimeSpan.FromSeconds(65), _viewModel.Position);
+        Assert.Equal("01:05", _viewModel.PositionText);
+
+        // Seek backward 10s
+        _viewModel.SeekRelativeCommand.Execute(-10);
+
+        Assert.Equal(55, _viewModel.PositionSeconds);
+        Assert.Equal(TimeSpan.FromSeconds(55), _viewModel.Position);
+        Assert.Equal("00:55", _viewModel.PositionText);
+    }
+
+    [Fact]
     public void SelectSubtitleTrack_ShouldUpdatePropertyAndCallService()
     {
         _viewModel.SubtitleTracks.Add(new TrackItem { Id = 1, Name = "English (SRT)" });

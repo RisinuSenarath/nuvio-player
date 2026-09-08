@@ -15,6 +15,7 @@ public class VlcMediaPlayerService : IMediaPlayerService
     private MediaPlayer? _mediaPlayer;
     private Media? _currentMedia;
     private bool _isDisposed;
+    private long _lastSeekTimeMs = -1;
 
     public bool IsPlaying => _mediaPlayer?.IsPlaying ?? false;
     public bool IsPaused => State == PlaybackState.Paused;
@@ -24,7 +25,7 @@ public class VlcMediaPlayerService : IMediaPlayerService
     {
         get
         {
-            long time = _mediaPlayer?.Time ?? 0;
+            long time = _lastSeekTimeMs >= 0 ? _lastSeekTimeMs : (_mediaPlayer?.Time ?? 0);
             return time > 0 ? TimeSpan.FromMilliseconds(time) : TimeSpan.Zero;
         }
     }
@@ -189,6 +190,7 @@ public class VlcMediaPlayerService : IMediaPlayerService
 
         _mediaPlayer.TimeChanged += (s, e) => Dispatch(() =>
         {
+            _lastSeekTimeMs = -1;
             PositionChanged?.Invoke(this, TimeSpan.FromMilliseconds(e.Time));
         });
 
@@ -339,6 +341,7 @@ public class VlcMediaPlayerService : IMediaPlayerService
 
     public void Stop()
     {
+        _lastSeekTimeMs = -1;
         if (_mediaPlayer != null && _mediaPlayer.IsPlaying)
         {
             _mediaPlayer.Stop();
@@ -356,8 +359,15 @@ public class VlcMediaPlayerService : IMediaPlayerService
         if (length > 0)
         {
             targetMs = Math.Clamp(targetMs, 0, length);
-            _mediaPlayer.Time = targetMs;
         }
+        else
+        {
+            targetMs = Math.Max(0, targetMs);
+        }
+
+        _lastSeekTimeMs = targetMs;
+        _mediaPlayer.Time = targetMs;
+        Dispatch(() => PositionChanged?.Invoke(this, TimeSpan.FromMilliseconds(targetMs)));
     }
 
     public void SeekToFraction(float fraction)
@@ -365,19 +375,30 @@ public class VlcMediaPlayerService : IMediaPlayerService
         if (_mediaPlayer == null) return;
         float clamped = Math.Clamp(fraction, 0f, 1f);
         _mediaPlayer.Position = clamped;
+
+        long length = _mediaPlayer.Length;
+        if (length > 0)
+        {
+            long targetMs = (long)(clamped * length);
+            _lastSeekTimeMs = targetMs;
+            Dispatch(() => PositionChanged?.Invoke(this, TimeSpan.FromMilliseconds(targetMs)));
+        }
     }
 
     public void SeekRelative(TimeSpan offset)
     {
         if (_mediaPlayer == null) return;
-        long current = _mediaPlayer.Time;
+        long current = _lastSeekTimeMs >= 0 ? _lastSeekTimeMs : _mediaPlayer.Time;
+        if (current < 0) current = 0;
         long delta = (long)offset.TotalMilliseconds;
         long target = Math.Max(0, current + delta);
         if (_mediaPlayer.Length > 0)
         {
             target = Math.Min(target, _mediaPlayer.Length);
         }
+        _lastSeekTimeMs = target;
         _mediaPlayer.Time = target;
+        Dispatch(() => PositionChanged?.Invoke(this, TimeSpan.FromMilliseconds(target)));
     }
 
     public bool TakeSnapshot(string outputPath, uint width = 0, uint height = 0)

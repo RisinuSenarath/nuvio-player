@@ -440,7 +440,14 @@ public partial class MainViewModel : ViewModelBase
             seconds = parsed;
         }
 
+        double maxSeconds = DurationSeconds > 0 ? DurationSeconds : double.MaxValue;
+        double targetSeconds = Math.Clamp(PositionSeconds + seconds, 0, maxSeconds);
+        Position = TimeSpan.FromSeconds(targetSeconds);
+        PositionSeconds = targetSeconds;
+        PositionText = FormatTime(Position);
+
         _mediaPlayerService.SeekRelative(TimeSpan.FromSeconds(seconds));
+
         string prefix = seconds > 0 ? $"+{seconds}" : $"{seconds}";
         ShowOsd($"{prefix} sec", 1200);
     }

@@ -18,7 +18,7 @@ internal class MockMediaPlayerService : IMediaPlayerService
     public TimeSpan Position { get; set; } = TimeSpan.Zero;
     public TimeSpan Duration { get; set; } = TimeSpan.FromMinutes(5);
     public float PositionFraction => (float)(Position.TotalSeconds / Duration.TotalSeconds);
-    public int Volume { get; set; } = 80;
+    public int Volume { get; set; } = 100;
     public bool IsMuted { get; set; } = false;
     public double PlaybackRate { get; set; } = 1.0;
     public string? CurrentMediaPath { get; set; }

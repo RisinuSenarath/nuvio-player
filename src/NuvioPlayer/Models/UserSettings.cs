@@ -17,7 +17,7 @@ public class UserSettings
     public int ShortSeekSeconds { get; set; } = 5;
     public int LongSeekSeconds { get; set; } = 30;
     public bool AutoPlayNext { get; set; } = true;
-    public int Volume { get; set; } = 80;
+    public int Volume { get; set; } = 100;
     public bool IsMuted { get; set; } = false;
     public string AspectRatio { get; set; } = "Default"; // "Default", "16:9", "4:3", "1:1", "21:9", "Fit", "Fill"
 

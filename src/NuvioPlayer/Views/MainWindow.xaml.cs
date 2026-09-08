@@ -62,8 +62,45 @@ public partial class MainWindow : Window
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool DeleteObject(IntPtr hObject);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr handle, uint flags);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
     private const int GCLP_HBRBACKGROUND = -10;
     private const int WM_ERASEBKGND = 0x0014;
+    private const int WM_GETMINMAXINFO = 0x0024;
+    private const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MINMAXINFO
+    {
+        public POINT ptReserved;
+        public POINT ptMaxSize;
+        public POINT ptMaxPosition;
+        public POINT ptMinTrackSize;
+        public POINT ptMaxTrackSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MONITORINFO
+    {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
 
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
     private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
@@ -152,12 +189,54 @@ public partial class MainWindow : Window
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (msg == WM_ERASEBKGND)
+        switch (msg)
         {
-            handled = true;
-            return (IntPtr)1;
+            case WM_ERASEBKGND:
+                handled = true;
+                return (IntPtr)1;
+
+            case WM_GETMINMAXINFO:
+                WmGetMinMaxInfo(hwnd, lParam);
+                handled = true;
+                break;
         }
         return IntPtr.Zero;
+    }
+
+    private void WmGetMinMaxInfo(IntPtr hwnd, IntPtr lParam)
+    {
+        var mmi = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+
+        IntPtr monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        if (monitor != IntPtr.Zero)
+        {
+            var monitorInfo = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+            if (GetMonitorInfo(monitor, ref monitorInfo))
+            {
+                if (_viewModel.IsFullscreen)
+                {
+                    // Fullscreen covers the entire physical monitor
+                    mmi.ptMaxPosition.X = 0;
+                    mmi.ptMaxPosition.Y = 0;
+                    mmi.ptMaxSize.X = Math.Abs(monitorInfo.rcMonitor.Right - monitorInfo.rcMonitor.Left);
+                    mmi.ptMaxSize.Y = Math.Abs(monitorInfo.rcMonitor.Bottom - monitorInfo.rcMonitor.Top);
+                    mmi.ptMaxTrackSize.X = mmi.ptMaxSize.X;
+                    mmi.ptMaxTrackSize.Y = mmi.ptMaxSize.Y;
+                }
+                else
+                {
+                    // Maximized window respects the work area (does NOT block or cover the Windows taskbar)
+                    mmi.ptMaxPosition.X = monitorInfo.rcWork.Left - monitorInfo.rcMonitor.Left;
+                    mmi.ptMaxPosition.Y = monitorInfo.rcWork.Top - monitorInfo.rcMonitor.Top;
+                    mmi.ptMaxSize.X = Math.Abs(monitorInfo.rcWork.Right - monitorInfo.rcWork.Left);
+                    mmi.ptMaxSize.Y = Math.Abs(monitorInfo.rcWork.Bottom - monitorInfo.rcWork.Top);
+                    mmi.ptMaxTrackSize.X = mmi.ptMaxSize.X;
+                    mmi.ptMaxTrackSize.Y = mmi.ptMaxSize.Y;
+                }
+            }
+        }
+
+        Marshal.StructureToPtr(mmi, lParam, true);
     }
 
     private static IntPtr SetClassLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong)

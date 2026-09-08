@@ -16,7 +16,7 @@ public class SettingsServiceTests
         Assert.True(settings.ResumePlayback);
         Assert.True(settings.RememberWindowSize);
         Assert.True(settings.RememberWindowPosition);
-        Assert.Equal(80, settings.Volume);
+        Assert.Equal(100, settings.Volume);
         Assert.Equal(1.0, settings.DefaultPlaybackSpeed);
         Assert.Equal(5, settings.ShortSeekSeconds);
         Assert.Equal(30, settings.LongSeekSeconds);
@@ -32,7 +32,7 @@ public class SettingsServiceTests
 
         service.ResetToDefaults();
 
-        Assert.Equal(80, service.Settings.Volume);
+        Assert.Equal(100, service.Settings.Volume);
         Assert.Equal(1.0, service.Settings.DefaultPlaybackSpeed);
     }
 

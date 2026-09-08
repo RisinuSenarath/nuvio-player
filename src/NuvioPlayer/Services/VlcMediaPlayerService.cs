@@ -249,6 +249,8 @@ public class VlcMediaPlayerService : IMediaPlayerService
             await _currentMedia.Parse(MediaParseOptions.ParseLocal | MediaParseOptions.FetchLocal);
 
             _mediaPlayer.Media = _currentMedia;
+            _mediaPlayer.SetRate(1.0f);
+            _mediaPlayer.Volume = _settingsService.Settings.Volume;
             _mediaPlayer.Play();
 
             MediaOpened?.Invoke(this, filePathOrUri);

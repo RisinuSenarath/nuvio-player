@@ -700,6 +700,7 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     public async Task OpenMediaFileAsync(string filePath)
     {
+        SetPlaybackRate(1.0);
         await _mediaPlayerService.OpenMediaAsync(filePath);
         await CheckAndPromptResumeAsync(filePath);
     }

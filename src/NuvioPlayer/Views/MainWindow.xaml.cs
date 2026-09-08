@@ -1,10 +1,13 @@
 using System.ComponentModel;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Shell;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
@@ -20,10 +23,23 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private readonly ISettingsService _settingsService;
     private readonly DispatcherTimer _inactivityTimer;
+
+    private Rect _previousWindowRect = new Rect(100, 100, 1200, 720);
     private WindowState _previousWindowState = WindowState.Normal;
-    private WindowStyle _previousWindowStyle = WindowStyle.SingleBorderWindow;
     private ResizeMode _previousResizeMode = ResizeMode.CanResize;
+
+    private Point _mouseDownPos;
+    private bool _isMouseDownOnVideo = false;
     private bool _isDraggingSeek = false;
+
+    // DWM Window Corner Attributes (Windows 11)
+    [DllImport("dwmapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
+
+    private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+    private const int DWMWCP_DEFAULT = 0;
+    private const int DWMWCP_DONOTROUND = 1;
+    private const int DWMWCP_ROUND = 2;
 
     public MainWindow(MainViewModel viewModel, ISettingsService settingsService)
     {
@@ -62,8 +78,9 @@ public partial class MainWindow : Window
         Drop += OnWindowDrop;
         DragOver += OnWindowDragOver;
 
-        // Video, Seek, and Playlist interactions
-        SetupVideoInteractions();
+        // Seek slider & playlist setup
+        SetupControlsInteractions();
+
         PlaylistListBox.MouseDoubleClick += (s, e) =>
         {
             if (PlaylistListBox.SelectedItem is PlaylistItem item)
@@ -73,38 +90,31 @@ public partial class MainWindow : Window
         };
     }
 
-    private void SetupVideoInteractions()
+    protected override void OnSourceInitialized(EventArgs e)
     {
-        VideoHostGrid.MouseLeftButtonDown += (s, e) =>
-        {
-            if (e.ClickCount == 2)
-            {
-                _viewModel.ToggleFullscreenCommand.Execute(null);
-                e.Handled = true;
-            }
-            else if (e.ClickCount == 1 && e.OriginalSource == VideoHostGrid || e.OriginalSource == PlayerVideoView)
-            {
-                _viewModel.TogglePlayPauseCommand.Execute(null);
-            }
-        };
+        base.OnSourceInitialized(e);
+        SetWindowCornerPreference(true);
+    }
 
-        VideoHostGrid.MouseWheel += (s, e) =>
+    private void SetWindowCornerPreference(bool round)
+    {
+        try
         {
-            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            var helper = new WindowInteropHelper(this);
+            if (helper.Handle != IntPtr.Zero)
             {
-                // Ctrl + Wheel = Seek
-                int seconds = e.Delta > 0 ? 10 : -10;
-                _viewModel.SeekRelativeCommand.Execute(seconds);
+                int preference = round ? DWMWCP_ROUND : DWMWCP_DONOTROUND;
+                DwmSetWindowAttribute(helper.Handle, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
             }
-            else
-            {
-                // Wheel = Volume
-                int delta = e.Delta > 0 ? 5 : -5;
-                _viewModel.ChangeVolumeCommand.Execute(delta);
-            }
-            e.Handled = true;
-        };
+        }
+        catch
+        {
+            // Fallback silently if DWM corner preference is not supported on this OS
+        }
+    }
 
+    private void SetupControlsInteractions()
+    {
         SeekSlider.AddHandler(Thumb.DragStartedEvent, new DragStartedEventHandler((s, e) =>
         {
             _isDraggingSeek = true;
@@ -121,12 +131,102 @@ public partial class MainWindow : Window
         {
             if (e.LeftButton == MouseButtonState.Pressed && !_isDraggingSeek)
             {
-                // Click on track seeking
                 double percent = e.GetPosition(SeekSlider).X / SeekSlider.ActualWidth;
                 double target = percent * SeekSlider.Maximum;
                 _viewModel.EndUserSeek(target);
             }
         };
+    }
+
+    private void OnTopBarMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.Left)
+        {
+            if (e.ClickCount == 2)
+            {
+                ToggleMaximizeRestore();
+            }
+            else
+            {
+                try
+                {
+                    DragMove();
+                }
+                catch
+                {
+                    // Ignored if window drag is interrupted
+                }
+            }
+        }
+    }
+
+    private void OnVideoOverlayMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.Left)
+        {
+            _isMouseDownOnVideo = true;
+            _mouseDownPos = e.GetPosition(this);
+
+            if (e.ClickCount == 2)
+            {
+                _isMouseDownOnVideo = false;
+                _viewModel.ToggleFullscreenCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void OnVideoOverlayMouseMove(object sender, MouseEventArgs e)
+    {
+        OnWindowMouseMove(sender, e);
+
+        if (_isMouseDownOnVideo && e.LeftButton == MouseButtonState.Pressed && !_viewModel.IsFullscreen)
+        {
+            Point currentPos = e.GetPosition(this);
+            Vector diff = currentPos - _mouseDownPos;
+            if (Math.Abs(diff.X) > 8 || Math.Abs(diff.Y) > 8)
+            {
+                _isMouseDownOnVideo = false;
+                try
+                {
+                    DragMove();
+                }
+                catch
+                {
+                    // Ignored
+                }
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void OnVideoOverlayMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_isMouseDownOnVideo && e.ChangedButton == MouseButton.Left)
+        {
+            _isMouseDownOnVideo = false;
+            // Check if clicked directly on video canvas or overlay grid (not on interactive buttons/sliders)
+            if (e.OriginalSource == VideoOverlayGrid || e.OriginalSource is Grid || e.OriginalSource == PlayerVideoView)
+            {
+                _viewModel.TogglePlayPauseCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void OnVideoOverlayMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            int seconds = e.Delta > 0 ? 10 : -10;
+            _viewModel.SeekRelativeCommand.Execute(seconds);
+        }
+        else
+        {
+            int delta = e.Delta > 0 ? 5 : -5;
+            _viewModel.ChangeVolumeCommand.Execute(delta);
+        }
+        e.Handled = true;
     }
 
     private void OnWindowMouseMove(object sender, MouseEventArgs e)
@@ -255,11 +355,6 @@ public partial class MainWindow : Window
                     }
                     e.Handled = true;
                 }
-                else
-                {
-                    OnRequestOpenFile();
-                    e.Handled = true;
-                }
                 break;
 
             case Key.P:
@@ -268,7 +363,49 @@ public partial class MainWindow : Window
                     _viewModel.TogglePlaylistCommand.Execute(null);
                     e.Handled = true;
                 }
+                else
+                {
+                    _viewModel.PreviousCommand.Execute(null);
+                    e.Handled = true;
+                }
                 break;
+
+            case Key.N:
+                _viewModel.NextCommand.Execute(null);
+                e.Handled = true;
+                break;
+        }
+    }
+
+    private void OnWindowDrop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+            if (files != null && files.Length > 0)
+            {
+                var validMedia = new List<string>();
+                foreach (var path in files)
+                {
+                    if (Directory.Exists(path))
+                    {
+                        validMedia.AddRange(MediaFileHelper.ScanDirectoryForMedia(path, recursive: true));
+                    }
+                    else if (MediaFileHelper.IsSupportedSubtitleFile(path))
+                    {
+                        _viewModel.LoadSubtitleFileCommand.Execute(path);
+                    }
+                    else if (MediaFileHelper.IsSupportedMediaFile(path))
+                    {
+                        validMedia.Add(path);
+                    }
+                }
+
+                if (validMedia.Count > 0)
+                {
+                    _ = _viewModel.HandleMediaPathsAsync(validMedia);
+                }
+            }
         }
     }
 
@@ -277,138 +414,111 @@ public partial class MainWindow : Window
         if (e.Data.GetDataPresent(DataFormats.FileDrop))
         {
             e.Effects = DragDropEffects.Copy;
-            e.Handled = true;
         }
-    }
-
-    private async void OnWindowDrop(object sender, DragEventArgs e)
-    {
-        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        else
         {
-            var files = (string[]?)e.Data.GetData(DataFormats.FileDrop);
-            if (files != null && files.Length > 0)
-            {
-                if (files.Length == 1 && Directory.Exists(files[0]))
-                {
-                    // Dragging a folder: Scan for supported media
-                    var supportedMedia = MediaFileHelper.ScanDirectoryForMedia(files[0], recursive: true);
-                    if (supportedMedia.Count > 0)
-                    {
-                        await _viewModel.HandleMediaPathsAsync(supportedMedia);
-                    }
-                    else
-                    {
-                        _viewModel.ShowOsd("No supported media files found in folder.");
-                    }
-                }
-                else if (files.Length == 1 && MediaFileHelper.IsSupportedSubtitleFile(files[0]))
-                {
-                    _viewModel.MediaPlayerService.AddSubtitleFile(files[0]);
-                    _viewModel.ShowOsd($"Loaded Subtitle: {System.IO.Path.GetFileName(files[0])}");
-                }
-                else
-                {
-                    var mediaFiles = files.Where(MediaFileHelper.IsSupportedMediaFile).ToList();
-                    if (mediaFiles.Count > 0)
-                    {
-                        await _viewModel.HandleMediaPathsAsync(mediaFiles);
-                    }
-                    else
-                    {
-                        _viewModel.ShowOsd("Unsupported file format.");
-                    }
-                }
-            }
+            e.Effects = DragDropEffects.None;
         }
+        e.Handled = true;
     }
 
     private void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
-        RestoreWindowState();
-    }
-
-    private void RestoreWindowState()
-    {
-        var settings = _settingsService.Settings;
-
-        if (settings.RememberWindowSize && settings.WindowWidth >= MinWidth && settings.WindowHeight >= MinHeight)
-        {
-            Width = settings.WindowWidth;
-            Height = settings.WindowHeight;
-        }
-
-        if (settings.RememberWindowPosition)
-        {
-            double left = settings.WindowLeft;
-            double top = settings.WindowTop;
-
-            double screenLeft = SystemParameters.VirtualScreenLeft;
-            double screenTop = SystemParameters.VirtualScreenTop;
-            double screenWidth = SystemParameters.VirtualScreenWidth;
-            double screenHeight = SystemParameters.VirtualScreenHeight;
-
-            if (left >= screenLeft && left + Width <= screenLeft + screenWidth &&
-                top >= screenTop && top + Height <= screenTop + screenHeight)
-            {
-                Left = left;
-                Top = top;
-            }
-        }
-
-        if (settings.IsMaximized)
-        {
-            WindowState = WindowState.Maximized;
-        }
-
-        UpdateMaximizeRestoreVisuals();
-    }
-
-    private void SaveWindowState()
-    {
-        var settings = _settingsService.Settings;
-
-        if (WindowState == WindowState.Maximized)
-        {
-            settings.IsMaximized = true;
-        }
-        else if (WindowState == WindowState.Normal)
-        {
-            settings.IsMaximized = false;
-            settings.WindowWidth = ActualWidth;
-            settings.WindowHeight = ActualHeight;
-            settings.WindowLeft = Left;
-            settings.WindowTop = Top;
-        }
+        ApplyWindowBounds();
     }
 
     private void OnWindowClosing(object? sender, CancelEventArgs e)
     {
-        SaveWindowState();
+        SaveWindowBounds();
+        _inactivityTimer.Stop();
+    }
+
+    private void ApplyWindowBounds()
+    {
+        var s = _settingsService.Settings;
+        if (s.RememberWindowSize && s.WindowWidth > 200 && s.WindowHeight > 200)
+        {
+            Width = s.WindowWidth;
+            Height = s.WindowHeight;
+        }
+
+        if (s.RememberWindowPosition && s.WindowLeft >= 0 && s.WindowTop >= 0)
+        {
+            double screenWidth = SystemParameters.VirtualScreenWidth;
+            double screenHeight = SystemParameters.VirtualScreenHeight;
+
+            if (s.WindowLeft + 100 < screenWidth && s.WindowTop + 100 < screenHeight)
+            {
+                Left = s.WindowLeft;
+                Top = s.WindowTop;
+            }
+        }
+
+        if (s.IsMaximized)
+        {
+            WindowState = WindowState.Maximized;
+        }
+    }
+
+    private void SaveWindowBounds()
+    {
+        var s = _settingsService.Settings;
+        s.IsMaximized = WindowState == WindowState.Maximized;
+        if (WindowState == WindowState.Normal)
+        {
+            s.WindowWidth = (int)ActualWidth;
+            s.WindowHeight = (int)ActualHeight;
+            s.WindowLeft = (int)Left;
+            s.WindowTop = (int)Top;
+        }
+        _ = _settingsService.SaveAsync();
     }
 
     private void ToggleMaximizeRestore()
     {
-        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        if (_viewModel.IsFullscreen)
+        {
+            _viewModel.ToggleFullscreenCommand.Execute(null);
+            return;
+        }
+
+        if (WindowState == WindowState.Maximized)
+        {
+            WindowState = WindowState.Normal;
+            RootBorder.CornerRadius = new CornerRadius(12);
+            RootBorder.BorderThickness = new Thickness(1);
+            SetWindowCornerPreference(true);
+        }
+        else
+        {
+            WindowState = WindowState.Maximized;
+            RootBorder.CornerRadius = new CornerRadius(0);
+            RootBorder.BorderThickness = new Thickness(0);
+            SetWindowCornerPreference(false);
+        }
     }
 
     private void OnWindowStateChanged(object? sender, EventArgs e)
     {
-        UpdateMaximizeRestoreVisuals();
-    }
-
-    private void UpdateMaximizeRestoreVisuals()
-    {
-        if (MaximizeIconPath == null || MaximizeButton == null) return;
-
-        if (WindowState == WindowState.Maximized)
+        bool isMaximized = WindowState == WindowState.Maximized;
+        if (!_viewModel.IsFullscreen)
         {
-            MaximizeIconPath.Data = (Geometry)FindResource("IconWindowRestore");
-            MaximizeButton.ToolTip = "Restore Down";
+            RootBorder.CornerRadius = isMaximized ? new CornerRadius(0) : new CornerRadius(12);
+            RootBorder.BorderThickness = isMaximized ? new Thickness(0) : new Thickness(1);
+            SetWindowCornerPreference(!isMaximized);
         }
-        else
+
+        var iconData = isMaximized
+            ? (Geometry)FindResource("IconWindowRestore")
+            : (Geometry)FindResource("IconWindowMaximize");
+
+        if (MaximizeIconPath != null)
         {
-            MaximizeIconPath.Data = (Geometry)FindResource("IconWindowMaximize");
-            MaximizeButton.ToolTip = "Maximize";
+            MaximizeIconPath.Data = iconData;
+        }
+        if (HomeMaximizeIconPath != null)
+        {
+            HomeMaximizeIconPath.Data = iconData;
         }
     }
 
@@ -472,24 +582,54 @@ public partial class MainWindow : Window
         if (fullscreen)
         {
             _previousWindowState = WindowState;
-            _previousWindowStyle = WindowStyle;
             _previousResizeMode = ResizeMode;
+            _previousWindowRect = new Rect(Left, Top, Width, Height);
 
-            ResizeMode = ResizeMode.NoResize;
+            // Remove WindowChrome in fullscreen so window stretches edge-to-edge without taskbar margins
+            WindowChrome.SetWindowChrome(this, null);
+
             WindowStyle = WindowStyle.None;
+            ResizeMode = ResizeMode.NoResize;
+
+            RootBorder.CornerRadius = new CornerRadius(0);
+            RootBorder.BorderThickness = new Thickness(0);
+            SetWindowCornerPreference(false);
+
+            WindowState = WindowState.Normal;
             WindowState = WindowState.Maximized;
 
-            TitleBarRow.Height = new GridLength(0);
-            FullscreenIconPath.Data = (Geometry)FindResource("IconExitFullscreen");
+            Topmost = true;
+
+            if (FullscreenIconPath != null)
+            {
+                FullscreenIconPath.Data = (Geometry)FindResource("IconExitFullscreen");
+            }
         }
         else
         {
-            TitleBarRow.Height = new GridLength(38);
-            ResizeMode = _previousResizeMode;
-            WindowStyle = _previousWindowStyle;
-            WindowState = _previousWindowState;
+            Topmost = false;
 
-            FullscreenIconPath.Data = (Geometry)FindResource("IconFullscreen");
+            WindowState = WindowState.Normal;
+            WindowStyle = WindowStyle.None;
+            ResizeMode = ResizeMode.CanResize;
+
+            Left = _previousWindowRect.Left;
+            Top = _previousWindowRect.Top;
+            Width = _previousWindowRect.Width;
+            Height = _previousWindowRect.Height;
+
+            RootBorder.CornerRadius = new CornerRadius(12);
+            RootBorder.BorderThickness = new Thickness(1);
+            SetWindowCornerPreference(true);
+
+            // Restore WindowChrome
+            WindowChrome.SetWindowChrome(this, WindowChromeElement);
+
+            if (FullscreenIconPath != null)
+            {
+                FullscreenIconPath.Data = (Geometry)FindResource("IconFullscreen");
+            }
+
             Cursor = Cursors.Arrow;
         }
     }

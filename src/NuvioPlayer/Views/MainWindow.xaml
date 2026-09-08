@@ -1,0 +1,954 @@
+<Window x:Class="NuvioPlayer.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:NuvioPlayer.ViewModels"
+        xmlns:models="clr-namespace:NuvioPlayer.Models"
+        xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
+        Title="{Binding WindowTitle}"
+        Width="1200" Height="720"
+        MinWidth="680" MinHeight="440"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BrushBackground}"
+        Foreground="{StaticResource BrushTextPrimary}"
+        AllowDrop="True">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome x:Name="WindowChromeElement"
+                      CaptionHeight="38"
+                      ResizeBorderThickness="7"
+                      CornerRadius="0"
+                      GlassFrameThickness="0"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Grid Background="{StaticResource BrushBackground}">
+        <Grid.RowDefinitions>
+            <!-- Custom TitleBar -->
+            <RowDefinition x:Name="TitleBarRow" Height="38"/>
+            <!-- Main Video & Content Area -->
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Custom TitleBar -->
+        <Border Grid.Row="0"
+                x:Name="TitleBarBorder"
+                Background="{StaticResource BrushTitleBar}"
+                BorderBrush="{StaticResource BrushSurfaceBorderSubtle}"
+                BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <!-- Brand & Logo -->
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- Media Title / Draggable Area -->
+                    <ColumnDefinition Width="*"/>
+                    <!-- Window State Buttons -->
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Brand & Logo -->
+                <StackPanel Grid.Column="0"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Margin="14,0,12,0"
+                            WindowChrome.IsHitTestVisibleInChrome="False">
+                    <Viewbox Width="18" Height="18" Margin="0,0,8,0">
+                        <Path Fill="{StaticResource BrushAccent}" Data="{StaticResource IconNuvioLogo}"/>
+                    </Viewbox>
+                    <TextBlock Text="Nuvio Player"
+                               FontWeight="SemiBold"
+                               FontSize="13"
+                               Foreground="{StaticResource BrushTextPrimary}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Media Title (Center / Draggable) -->
+                <TextBlock Grid.Column="1"
+                           Text="{Binding MediaTitle}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           Foreground="{StaticResource BrushTextSecondary}"
+                           TextTrimming="CharacterEllipsis"
+                           Margin="16,0"/>
+
+                <!-- Window Control Buttons (Min, Max/Restore, Close) -->
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Stretch"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button Style="{StaticResource TitleBarButton}"
+                            Command="{Binding MinimizeCommand}"
+                            ToolTip="Minimize">
+                        <Viewbox Width="10" Height="10">
+                            <Path Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Data="{StaticResource IconWindowMinimize}"/>
+                        </Viewbox>
+                    </Button>
+                    <Button x:Name="MaximizeButton"
+                            Style="{StaticResource TitleBarButton}"
+                            Command="{Binding MaximizeCommand}"
+                            ToolTip="Maximize">
+                        <Viewbox Width="10" Height="10">
+                            <Path x:Name="MaximizeIconPath"
+                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Data="{StaticResource IconWindowMaximize}"/>
+                        </Viewbox>
+                    </Button>
+                    <Button Style="{StaticResource TitleBarCloseButton}"
+                            Command="{Binding CloseCommand}"
+                            ToolTip="Close">
+                        <Viewbox Width="10" Height="10">
+                            <Path Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Data="{StaticResource IconWindowClose}"/>
+                        </Viewbox>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main Content Area -->
+        <Grid Grid.Row="1" x:Name="VideoHostGrid" Background="Black">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Column 0: Video Area & Controls HUD -->
+            <Grid Grid.Column="0" ContextMenuOpening="OnVideoContextMenuOpening">
+                <!-- Context Menu for Right Click -->
+                <Grid.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Play / Pause" Command="{Binding TogglePlayPauseCommand}" InputGestureText="Space"/>
+                        <MenuItem Header="Open File..." Command="{Binding OpenFileCommand}" InputGestureText="Ctrl+O"/>
+                        <MenuItem Header="Open Folder..." Command="{Binding OpenFolderCommand}" InputGestureText="Ctrl+Shift+O"/>
+                        <MenuItem Header="Playlist" Command="{Binding TogglePlaylistCommand}" InputGestureText="Ctrl+P"/>
+                        <Separator/>
+                        <MenuItem x:Name="AudioTrackMenuItem" Header="Audio Track"/>
+                        <MenuItem x:Name="SubtitleTrackMenuItem" Header="Subtitle Track"/>
+                        <MenuItem Header="Subtitle Delay">
+                            <MenuItem Header="-50 ms" Command="{Binding AdjustSubtitleDelayCommand}" CommandParameter="-50" InputGestureText="G"/>
+                            <MenuItem Header="+50 ms" Command="{Binding AdjustSubtitleDelayCommand}" CommandParameter="50" InputGestureText="H"/>
+                            <MenuItem Header="Reset (0 ms)" Command="{Binding ResetSubtitleDelayCommand}"/>
+                        </MenuItem>
+                        <MenuItem Header="Audio Delay">
+                            <MenuItem Header="-50 ms" Command="{Binding AdjustAudioDelayCommand}" CommandParameter="-50" InputGestureText="J"/>
+                            <MenuItem Header="+50 ms" Command="{Binding AdjustAudioDelayCommand}" CommandParameter="50" InputGestureText="K"/>
+                            <MenuItem Header="Reset (0 ms)" Command="{Binding ResetAudioDelayCommand}"/>
+                        </MenuItem>
+                        <MenuItem Header="Playback Speed">
+                            <MenuItem Header="0.25x" Command="{Binding SetPlaybackRateCommand}" CommandParameter="0.25"/>
+                            <MenuItem Header="0.5x" Command="{Binding SetPlaybackRateCommand}" CommandParameter="0.5"/>
+                            <MenuItem Header="0.75x" Command="{Binding SetPlaybackRateCommand}" CommandParameter="0.75"/>
+                            <MenuItem Header="1.0x (Normal)" Command="{Binding SetPlaybackRateCommand}" CommandParameter="1.0"/>
+                            <MenuItem Header="1.25x" Command="{Binding SetPlaybackRateCommand}" CommandParameter="1.25"/>
+                            <MenuItem Header="1.5x" Command="{Binding SetPlaybackRateCommand}" CommandParameter="1.5"/>
+                            <MenuItem Header="1.75x" Command="{Binding SetPlaybackRateCommand}" CommandParameter="1.75"/>
+                            <MenuItem Header="2.0x" Command="{Binding SetPlaybackRateCommand}" CommandParameter="2.0"/>
+                        </MenuItem>
+                        <MenuItem Header="Aspect Ratio">
+                            <MenuItem Header="Default" Command="{Binding SetAspectRatioCommand}" CommandParameter="Default"/>
+                            <MenuItem Header="16:9" Command="{Binding SetAspectRatioCommand}" CommandParameter="16:9"/>
+                            <MenuItem Header="4:3" Command="{Binding SetAspectRatioCommand}" CommandParameter="4:3"/>
+                            <MenuItem Header="1:1" Command="{Binding SetAspectRatioCommand}" CommandParameter="1:1"/>
+                            <MenuItem Header="21:9" Command="{Binding SetAspectRatioCommand}" CommandParameter="21:9"/>
+                            <MenuItem Header="Fit" Command="{Binding SetAspectRatioCommand}" CommandParameter="Fit"/>
+                            <MenuItem Header="Fill" Command="{Binding SetAspectRatioCommand}" CommandParameter="Fill"/>
+                        </MenuItem>
+                        <MenuItem x:Name="VideoTrackMenuItem" Header="Video Track"/>
+                        <Separator/>
+                        <MenuItem Header="Fullscreen" Command="{Binding ToggleFullscreenCommand}" InputGestureText="F"/>
+                        <MenuItem Header="Screenshot" Command="{Binding TakeScreenshotCommand}" InputGestureText="F12"/>
+                        <MenuItem Header="Bookmarks" Command="{Binding ToggleBookmarksCommand}"/>
+                        <MenuItem Header="Media Information" Command="{Binding OpenMediaInfoCommand}" InputGestureText="I"/>
+                        <Separator/>
+                        <MenuItem Header="Settings..." Command="{Binding OpenSettingsCommand}"/>
+                    </ContextMenu>
+                </Grid.ContextMenu>
+
+                <!-- Real Video View Surface -->
+                <vlc:VideoView x:Name="PlayerVideoView"
+                               MediaPlayer="{Binding MediaPlayer}"
+                               HorizontalAlignment="Stretch"
+                               VerticalAlignment="Stretch"
+                               Visibility="{Binding HasMedia, Converter={StaticResource BoolToVisConverter}}"/>
+
+                <!-- Home Screen when no media is loaded -->
+                <Border Background="{StaticResource BrushBackground}"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Visibility="{Binding HasMedia, Converter={StaticResource InverseBoolToVisConverter}}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Viewbox Width="64" Height="64" Margin="0,0,0,20" Opacity="0.9">
+                            <Path Fill="{StaticResource BrushAccent}" Data="{StaticResource IconNuvioLogo}"/>
+                        </Viewbox>
+                        <TextBlock Text="Nuvio Player"
+                                   FontSize="26"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource BrushTextPrimary}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,6"/>
+                        <TextBlock Text="Drop a video file here, or choose an option below"
+                                   FontSize="14"
+                                   Foreground="{StaticResource BrushTextSecondary}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,24"/>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Button Style="{StaticResource PrimaryButton}"
+                                    Command="{Binding OpenFileCommand}"
+                                    Margin="0,0,12,0"
+                                    Padding="18,10">
+                                <StackPanel Orientation="Horizontal">
+                                    <Viewbox Width="16" Height="16" Margin="0,0,8,0">
+                                        <Path Fill="#0F172A" Data="{StaticResource IconFile}"/>
+                                    </Viewbox>
+                                    <TextBlock Text="Open File" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding OpenFolderCommand}"
+                                    Padding="18,10">
+                                <StackPanel Orientation="Horizontal">
+                                    <Viewbox Width="16" Height="16" Margin="0,0,8,0">
+                                        <Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconFolder}"/>
+                                    </Viewbox>
+                                    <TextBlock Text="Open Folder"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- Recent Media Section -->
+                        <Border Margin="0,32,0,0"
+                                Width="520"
+                                HorizontalAlignment="Center"
+                                Visibility="{Binding HasRecentMedia, Converter={StaticResource BoolToVisConverter}}">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,10">
+                                    <TextBlock Text="RECENT MEDIA"
+                                               FontSize="11"
+                                               FontWeight="Bold"
+                                               Foreground="{StaticResource BrushTextTertiary}"/>
+                                    <Button HorizontalAlignment="Right"
+                                            Content="Clear History"
+                                            Style="{StaticResource FlatButton}"
+                                            Command="{Binding ClearRecentMediaCommand}"
+                                            Foreground="{StaticResource BrushTextTertiary}"
+                                            FontSize="11"
+                                            Padding="4,2"/>
+                                </Grid>
+
+                                <ItemsControl ItemsSource="{Binding RecentMedia}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{StaticResource BrushSurface}"
+                                                    BorderBrush="{StaticResource BrushBorder}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="6"
+                                                    Padding="12,8"
+                                                    Margin="0,0,0,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Play icon button -->
+                                                    <Button Grid.Column="0"
+                                                            Style="{StaticResource IconButton}"
+                                                            Command="{Binding DataContext.OpenRecentMediaCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                            CommandParameter="{Binding}"
+                                                            Margin="0,0,10,0">
+                                                        <Viewbox Width="12" Height="12">
+                                                            <Path Fill="{StaticResource BrushAccent}" Data="{StaticResource IconPlay}"/>
+                                                        </Viewbox>
+                                                    </Button>
+
+                                                    <!-- Title & Progress -->
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding DisplayName}"
+                                                                   FontWeight="Medium"
+                                                                   FontSize="13"
+                                                                   Foreground="{StaticResource BrushTextPrimary}"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding ProgressText}"
+                                                                   FontSize="11"
+                                                                   Foreground="{StaticResource BrushTextTertiary}"
+                                                                   Margin="0,2,0,0"/>
+                                                    </StackPanel>
+
+                                                    <!-- Relative Time -->
+                                                    <TextBlock Grid.Column="2"
+                                                               Text="{Binding RelativeTime}"
+                                                               FontSize="11"
+                                                               Foreground="{StaticResource BrushTextSecondary}"
+                                                               VerticalAlignment="Center"
+                                                               Margin="12,0"/>
+
+                                                    <!-- Remove button -->
+                                                    <Button Grid.Column="3"
+                                                            Style="{StaticResource IconButton}"
+                                                            Command="{Binding DataContext.RemoveRecentMediaCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                            CommandParameter="{Binding}"
+                                                            ToolTip="Remove from history"
+                                                            Width="24" Height="24">
+                                                        <Viewbox Width="9" Height="9">
+                                                            <Path Fill="{StaticResource BrushTextTertiary}" Data="{StaticResource IconWindowClose}"/>
+                                                        </Viewbox>
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Bottom Floating HUD Controls Bar -->
+                <Border x:Name="ControlsHud"
+                        VerticalAlignment="Bottom"
+                        HorizontalAlignment="Stretch"
+                        Background="{StaticResource BrushHudBackground}"
+                        BorderBrush="{StaticResource BrushHudBorder}"
+                        BorderThickness="0,1,0,0"
+                        Padding="16,10,16,12"
+                        Visibility="{Binding AreControlsVisible, Converter={StaticResource BoolToVisConverter}}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <!-- Seek Slider & Timestamps -->
+                            <RowDefinition Height="Auto"/>
+                            <!-- Main Controls Toolbar -->
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Row 0: Seek bar & Time display -->
+                        <Grid Grid.Row="0" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Current Time -->
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding PositionText}"
+                                       FontFamily="Segoe UI, Consolas, sans-serif"
+                                       FontSize="12"
+                                       FontWeight="Medium"
+                                       Foreground="{StaticResource BrushTextSecondary}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,12,0"/>
+
+                            <!-- Seek Slider -->
+                            <Slider Grid.Column="1"
+                                    x:Name="SeekSlider"
+                                    Style="{StaticResource ModernSeekSlider}"
+                                    Minimum="0"
+                                    Maximum="{Binding DurationSeconds, FallbackValue=100}"
+                                    Value="{Binding PositionSeconds, Mode=OneWay}"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0"/>
+
+                            <!-- Total Duration -->
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding DurationText}"
+                                       FontFamily="Segoe UI, Consolas, sans-serif"
+                                       FontSize="12"
+                                       FontWeight="Medium"
+                                       Foreground="{StaticResource BrushTextSecondary}"
+                                       VerticalAlignment="Center"
+                                       Margin="12,0,0,0"/>
+                        </Grid>
+
+                        <!-- Row 1: Playback Controls Toolbar -->
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <!-- Left: Playback buttons -->
+                                <ColumnDefinition Width="Auto"/>
+                                <!-- Center-Left: Volume -->
+                                <ColumnDefinition Width="Auto"/>
+                                <!-- Center: Flexible space / Title -->
+                                <ColumnDefinition Width="*"/>
+                                <!-- Right: Features, Speed, Fullscreen -->
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left: Core playback buttons -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <!-- Previous in playlist -->
+                                <Button Style="{StaticResource IconButton}"
+                                        Command="{Binding PreviousCommand}"
+                                        ToolTip="Previous (P)">
+                                    <Viewbox Width="14" Height="14">
+                                        <Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconPrevious}"/>
+                                    </Viewbox>
+                                </Button>
+
+                                <!-- Seek -5s -->
+                                <Button Style="{StaticResource IconButton}"
+                                        Command="{Binding SeekRelativeCommand}"
+                                        CommandParameter="-5"
+                                        ToolTip="Seek Backward 5s (Left Arrow)">
+                                    <Viewbox Width="16" Height="16">
+                                        <Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconReplay10}"/>
+                                    </Viewbox>
+                                </Button>
+
+                                <!-- Big Play / Pause Button -->
+                                <Button Style="{StaticResource PlayRoundButton}"
+                                        Command="{Binding TogglePlayPauseCommand}"
+                                        Margin="8,0"
+                                        ToolTip="Play / Pause (Space)">
+                                    <Viewbox Width="18" Height="18">
+                                        <Path x:Name="PlayPauseIconPath"
+                                              Fill="#0B0D11"
+                                              Data="{StaticResource IconPlay}"/>
+                                    </Viewbox>
+                                </Button>
+
+                                <!-- Seek +5s -->
+                                <Button Style="{StaticResource IconButton}"
+                                        Command="{Binding SeekRelativeCommand}"
+                                        CommandParameter="5"
+                                        ToolTip="Seek Forward 5s (Right Arrow)">
+                                    <Viewbox Width="16" Height="16">
+                                        <Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconForward10}"/>
+                                    </Viewbox>
+                                </Button>
+
+                                <!-- Next in playlist -->
+                                <Button Style="{StaticResource IconButton}"
+                                        Command="{Binding NextCommand}"
+                                        ToolTip="Next (N)">
+                                    <Viewbox Width="14" Height="14">
+                                        <Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconNext}"/>
+                                    </Viewbox>
+                                </Button>
+
+                                <!-- Stop Button -->
+                                <Button Style="{StaticResource IconButton}"
+                                        Command="{Binding StopCommand}"
+                                        Margin="4,0,0,0"
+                                        ToolTip="Stop">
+                                    <Viewbox Width="14" Height="14">
+                                        <Path Fill="{StaticResource BrushTextSecondary}" Data="{StaticResource IconStop}"/>
+                                    </Viewbox>
+                                </Button>
+                            </StackPanel>
+
+                            <!-- Center-Left: Volume control -->
+                            <StackPanel Grid.Column="1"
+                                        Orientation="Horizontal"
+                                        VerticalAlignment="Center"
+                                        Margin="18,0,0,0">
+                                <!-- Mute Button -->
+                                <Button Style="{StaticResource IconButton}"
+                                        Command="{Binding ToggleMuteCommand}"
+                                        ToolTip="Mute / Unmute (M)">
+                                    <Viewbox Width="18" Height="18">
+                                        <Path x:Name="VolumeIconPath"
+                                              Fill="{StaticResource BrushTextPrimary}"
+                                              Data="{StaticResource IconVolumeHigh}"/>
+                                    </Viewbox>
+                                </Button>
+
+                                <!-- Volume Slider -->
+                                <Slider x:Name="VolumeSlider"
+                                        Style="{StaticResource ModernVolumeSlider}"
+                                        Width="80"
+                                        Minimum="0"
+                                        Maximum="100"
+                                        Value="{Binding Volume, Mode=TwoWay}"
+                                        VerticalAlignment="Center"
+                                        Margin="6,0,0,0"
+                                        ToolTip="Volume (Up/Down Arrow)"/>
+                            </StackPanel>
+
+                            <!-- Center: Media Title / Status -->
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding MediaTitle}"
+                                       Foreground="{StaticResource BrushTextSecondary}"
+                                       FontSize="12"
+                                       FontWeight="Medium"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       Margin="16,0"/>
+
+                            <!-- Right: Actions, Speed, Fullscreen -->
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                                <!-- Playback Speed Button -->
+                                <Button Style="{StaticResource IconButton}"
+                                        Command="{Binding CyclePlaybackRateCommand}"
+                                        ToolTip="Playback Speed"
+                                        Padding="6,4"
+                                        Margin="0,0,4,0">
+                                    <Border Background="{StaticResource BrushSurfaceActive}"
+                                            CornerRadius="4"
+                                            Padding="6,2">
+                                        <TextBlock Text="{Binding PlaybackRateText}"
+                                                   FontSize="11"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource BrushAccent}"/>
+                                    </Border>
+                                </Button>
+
+                                <!-- Subtitles -->
+                                <Button Style="{StaticResource IconButton}"
+                                        Command="{Binding ToggleSubtitlesCommand}"
+                                        ToolTip="Subtitles (S)"
+                                        Margin="0,0,4,0">
+                                    <Viewbox Width="16" Height="16">
+                                        <Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconSubtitles}"/>
+                                    </Viewbox>
+                                </Button>
+
+                                <!-- Screenshot -->
+                                <Button Style="{StaticResource IconButton}"
+                                        Command="{Binding TakeScreenshotCommand}"
+                                        ToolTip="Take Screenshot (F12)">
+                                    <Viewbox Width="16" Height="16">
+                                        <Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconCamera}"/>
+                                    </Viewbox>
+                                </Button>
+
+                                <!-- Media Info -->
+                                <Button Style="{StaticResource IconButton}"
+                                        Command="{Binding OpenMediaInfoCommand}"
+                                        ToolTip="Media Information (I)">
+                                    <Viewbox Width="16" Height="16">
+                                        <Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconInfo}"/>
+                                    </Viewbox>
+                                </Button>
+
+                                <!-- Playlist Toggle -->
+                                <Button Style="{StaticResource IconButton}"
+                                        Command="{Binding TogglePlaylistCommand}"
+                                        ToolTip="Playlist (Ctrl+P)">
+                                    <Viewbox Width="16" Height="16">
+                                        <Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconPlaylist}"/>
+                                    </Viewbox>
+                                </Button>
+
+                                <!-- Fullscreen Toggle -->
+                                <Button Style="{StaticResource IconButton}"
+                                        Command="{Binding ToggleFullscreenCommand}"
+                                        ToolTip="Fullscreen (F)">
+                                    <Viewbox Width="16" Height="16">
+                                        <Path x:Name="FullscreenIconPath"
+                                              Fill="{StaticResource BrushTextPrimary}"
+                                              Data="{StaticResource IconFullscreen}"/>
+                                    </Viewbox>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- On-Screen Display (OSD) Notification Overlay -->
+                <Border HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Margin="0,32,0,0"
+                        Background="{StaticResource BrushOsdBackground}"
+                        BorderBrush="{StaticResource BrushSurfaceBorder}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16,8"
+                        IsHitTestVisible="False"
+                        Visibility="{Binding IsOsdVisible, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock Text="{Binding OsdMessage}"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource BrushTextPrimary}"/>
+                </Border>
+
+                <!-- Resume Playback Prompt Overlay -->
+                <Border HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Margin="0,72,0,0"
+                        Background="{StaticResource BrushBackgroundElevated}"
+                        BorderBrush="{StaticResource BrushAccent}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16,10"
+                        Visibility="{Binding IsResumePromptVisible, Converter={StaticResource BoolToVisConverter}}">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Viewbox Width="18" Height="18" Margin="0,0,10,0">
+                            <Path Fill="{StaticResource BrushAccent}" Data="{StaticResource IconReplay10}"/>
+                        </Viewbox>
+                        <TextBlock Text="{Binding ResumePromptText}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource BrushTextPrimary}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,14,0"/>
+                        <Button Style="{StaticResource PrimaryButton}"
+                                Command="{Binding ResumePlaybackCommand}"
+                                Content="Resume"
+                                Padding="12,5"
+                                Margin="0,0,6,0"/>
+                        <Button Style="{StaticResource SecondaryButton}"
+                                Command="{Binding StartOverPlaybackCommand}"
+                                Content="Start Over"
+                                Padding="12,5"
+                                Margin="0,0,6,0"/>
+                        <Button Style="{StaticResource IconButton}"
+                                Command="{Binding DismissResumePromptCommand}"
+                                Padding="4"
+                                ToolTip="Dismiss">
+                            <Viewbox Width="10" Height="10">
+                                <Path Fill="{StaticResource BrushTextSecondary}" Data="{StaticResource IconWindowClose}"/>
+                            </Viewbox>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Column 1: Collapsible Right Sidebar (Playlist & Bookmarks) -->
+            <Border Grid.Column="1"
+                    Width="320"
+                    Background="{StaticResource BrushBackgroundElevated}"
+                    BorderBrush="{StaticResource BrushSurfaceBorderSubtle}"
+                    BorderThickness="1,0,0,0"
+                    Visibility="{Binding IsRightSidebarOpen, Converter={StaticResource BoolToVisConverter}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <!-- Sidebar Header -->
+                        <RowDefinition Height="46"/>
+                        <!-- Sidebar Content -->
+                        <RowDefinition Height="*"/>
+                        <!-- Footer / Summary -->
+                        <RowDefinition Height="36"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Sidebar Header with Tabs -->
+                    <Border Grid.Row="0"
+                            BorderBrush="{StaticResource BrushSurfaceBorderSubtle}"
+                            BorderThickness="0,0,0,1"
+                            Padding="12,0">
+                        <Grid VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Tab buttons: Playlist & Bookmarks -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Style="{StaticResource FlatButton}"
+                                        Command="{Binding ShowPlaylistTabCommand}"
+                                        Padding="6,4"
+                                        Margin="0,0,4,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Playlist"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="13"
+                                                   Foreground="{StaticResource BrushTextPrimary}"/>
+                                        <Border Background="{StaticResource BrushSurfaceActive}"
+                                                CornerRadius="8"
+                                                Padding="5,1"
+                                                Margin="6,0,0,0">
+                                            <TextBlock Text="{Binding Playlist.Items.Count}"
+                                                       FontSize="10"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource BrushAccent}"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Style="{StaticResource FlatButton}"
+                                        Command="{Binding ShowBookmarksTabCommand}"
+                                        Padding="6,4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Bookmarks"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="13"
+                                                   Foreground="{StaticResource BrushTextSecondary}"/>
+                                        <Border Background="{StaticResource BrushSurfaceActive}"
+                                                CornerRadius="8"
+                                                Padding="5,1"
+                                                Margin="6,0,0,0">
+                                            <TextBlock Text="{Binding Bookmarks.Count}"
+                                                       FontSize="10"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource BrushAccent}"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+
+                            <!-- Header actions -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <!-- Playlist Header buttons when Playlist tab active -->
+                                <StackPanel Orientation="Horizontal"
+                                            Visibility="{Binding IsPlaylistOpen, Converter={StaticResource BoolToVisConverter}}">
+                                    <Button Style="{StaticResource IconButton}" Command="{Binding Playlist.AddFilesCommand}" ToolTip="Add Files">
+                                        <Viewbox Width="14" Height="14"><Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconPlus}"/></Viewbox>
+                                    </Button>
+                                    <Button Style="{StaticResource IconButton}" Command="{Binding Playlist.ToggleShuffleCommand}" ToolTip="Shuffle">
+                                        <Viewbox Width="14" Height="14"><Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconShuffle}"/></Viewbox>
+                                    </Button>
+                                    <Button Style="{StaticResource IconButton}" Command="{Binding Playlist.CycleRepeatModeCommand}" ToolTip="{Binding Playlist.RepeatModeText}">
+                                        <Viewbox Width="14" Height="14"><Path Fill="{StaticResource BrushTextPrimary}" Data="{StaticResource IconRepeat}"/></Viewbox>
+                                    </Button>
+                                    <Button Style="{StaticResource IconButton}" Command="{Binding Playlist.SavePlaylistCommand}" ToolTip="Save Playlist (.m3u)">
+                                        <Viewbox Width="14" Height="14"><Path Fill="{StaticResource BrushTextSecondary}" Data="{StaticResource IconFile}"/></Viewbox>
+                                    </Button>
+                                    <Button Style="{StaticResource IconButton}" Command="{Binding Playlist.ClearCommand}" ToolTip="Clear Playlist">
+                                        <Viewbox Width="14" Height="14"><Path Fill="{StaticResource BrushTextSecondary}" Data="{StaticResource IconTrash}"/></Viewbox>
+                                    </Button>
+                                </StackPanel>
+
+                                <!-- Close Sidebar -->
+                                <Button Style="{StaticResource IconButton}"
+                                        Command="{Binding CloseSidebarCommand}"
+                                        ToolTip="Close Sidebar">
+                                    <Viewbox Width="12" Height="12">
+                                        <Path Fill="{StaticResource BrushTextSecondary}" Data="{StaticResource IconWindowClose}"/>
+                                    </Viewbox>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Content Row 1: Playlist Area -->
+                    <Grid Grid.Row="1"
+                          Visibility="{Binding IsPlaylistOpen, Converter={StaticResource BoolToVisConverter}}">
+                        <!-- Playlist ListBox -->
+                        <ListBox x:Name="PlaylistListBox"
+                                 Style="{StaticResource PlaylistBox}"
+                                 ItemContainerStyle="{StaticResource PlaylistBoxItem}"
+                                 ItemsSource="{Binding Playlist.Items}"
+                                 SelectedItem="{Binding Playlist.CurrentItem, Mode=TwoWay}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type models:PlaylistItem}">
+                                    <Grid Margin="2,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="4"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Playing indicator bar -->
+                                        <Border Grid.Column="0"
+                                                Background="{StaticResource BrushAccent}"
+                                                CornerRadius="2"
+                                                Margin="0,0,6,0"
+                                                Visibility="{Binding IsPlaying, Converter={StaticResource BoolToVisConverter}}"/>
+
+                                        <!-- Title and Path -->
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Title}"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="12"
+                                                       Foreground="{StaticResource BrushTextPrimary}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding FilePath}"
+                                                       FontSize="10"
+                                                       Foreground="{StaticResource BrushTextMuted}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+
+                                        <!-- Remove item button -->
+                                        <Button Grid.Column="2"
+                                                Style="{StaticResource IconButton}"
+                                                Padding="4"
+                                                VerticalAlignment="Center"
+                                                Command="{Binding DataContext.Playlist.RemoveItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="Remove">
+                                            <Viewbox Width="10" Height="10">
+                                                <Path Fill="{StaticResource BrushTextSecondary}" Data="{StaticResource IconWindowClose}"/>
+                                            </Viewbox>
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <!-- Empty Playlist State -->
+                        <StackPanel HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Margin="20"
+                                    Visibility="{Binding Playlist.HasItems, Converter={StaticResource InverseBoolToVisConverter}}">
+                            <Viewbox Width="36" Height="36" Margin="0,0,0,12" Opacity="0.4">
+                                <Path Fill="{StaticResource BrushTextMuted}" Data="{StaticResource IconPlaylist}"/>
+                            </Viewbox>
+                            <TextBlock Text="Playlist is empty"
+                                       FontWeight="SemiBold"
+                                       FontSize="13"
+                                       Foreground="{StaticResource BrushTextSecondary}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,0,0,4"/>
+                            <TextBlock Text="Drag media files here or click + to add"
+                                       FontSize="11"
+                                       Foreground="{StaticResource BrushTextMuted}"
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Content Row 1: Bookmarks Panel -->
+                    <Grid Grid.Row="1"
+                          Visibility="{Binding IsBookmarksOpen, Converter={StaticResource BoolToVisConverter}}">
+                        <Grid.RowDefinitions>
+                            <!-- Add Bookmark input -->
+                            <RowDefinition Height="Auto"/>
+                            <!-- Bookmarks list -->
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Add Bookmark Bar -->
+                        <Border Grid.Row="0"
+                                Background="{StaticResource BrushSurface}"
+                                BorderBrush="{StaticResource BrushBorder}"
+                                BorderThickness="0,0,0,1"
+                                Padding="12,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0"
+                                         Text="{Binding NewBookmarkLabel, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ModernTextBox}"
+                                         Height="30"
+                                         Padding="8,4"
+                                         Margin="0,0,8,0"
+                                         ToolTip="Enter label or leave empty for timestamp"/>
+                                <Button Grid.Column="1"
+                                        Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding AddBookmarkCommand}"
+                                        Content="+ Add"
+                                        Height="30"
+                                        Padding="12,0"
+                                        ToolTip="Add Bookmark at Current Position"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Bookmarks List -->
+                        <ListBox Grid.Row="1"
+                                 ItemsSource="{Binding Bookmarks}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{StaticResource BrushSurface}"
+                                            BorderBrush="{StaticResource BrushBorder}"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="10,8"
+                                            Margin="8,4">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Timestamp badge -->
+                                            <Border Grid.Column="0"
+                                                    Background="{StaticResource BrushSurfaceActive}"
+                                                    CornerRadius="4"
+                                                    Padding="6,3"
+                                                    Margin="0,0,10,0"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding FormattedPosition}"
+                                                           FontFamily="Segoe UI, Consolas, sans-serif"
+                                                           FontSize="11"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{StaticResource BrushAccent}"/>
+                                            </Border>
+
+                                            <!-- Label -->
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding Label}"
+                                                       FontWeight="Medium"
+                                                       FontSize="12"
+                                                       Foreground="{StaticResource BrushTextPrimary}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       VerticalAlignment="Center"/>
+
+                                            <!-- Action buttons: Jump & Delete -->
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Button Style="{StaticResource IconButton}"
+                                                        Command="{Binding DataContext.JumpToBookmarkCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip="Jump to bookmark"
+                                                        Margin="0,0,4,0">
+                                                    <Viewbox Width="12" Height="12">
+                                                        <Path Fill="{StaticResource BrushAccent}" Data="{StaticResource IconPlay}"/>
+                                                    </Viewbox>
+                                                </Button>
+                                                <Button Style="{StaticResource IconButton}"
+                                                        Command="{Binding DataContext.RemoveBookmarkCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip="Delete bookmark">
+                                                    <Viewbox Width="10" Height="10">
+                                                        <Path Fill="{StaticResource BrushTextTertiary}" Data="{StaticResource IconTrash}"/>
+                                                    </Viewbox>
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <!-- Empty Bookmarks State -->
+                        <StackPanel Grid.Row="1"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Margin="20"
+                                    Visibility="{Binding HasBookmarks, Converter={StaticResource InverseBoolToVisConverter}}">
+                            <Viewbox Width="36" Height="36" Margin="0,0,0,12" Opacity="0.4">
+                                <Path Fill="{StaticResource BrushTextMuted}" Data="{StaticResource IconBookmark}"/>
+                            </Viewbox>
+                            <TextBlock Text="No bookmarks saved"
+                                       FontWeight="SemiBold"
+                                       FontSize="13"
+                                       Foreground="{StaticResource BrushTextSecondary}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,0,0,4"/>
+                            <TextBlock Text="Add a bookmark at the current playback position"
+                                       FontSize="11"
+                                       Foreground="{StaticResource BrushTextMuted}"
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Footer: Quick Stats -->
+                    <Border Grid.Row="2"
+                            BorderBrush="{StaticResource BrushSurfaceBorderSubtle}"
+                            BorderThickness="0,1,0,0"
+                            Padding="12,0">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Playlist.RepeatModeText}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource BrushTextMuted}"
+                                       Visibility="{Binding IsPlaylistOpen, Converter={StaticResource BoolToVisConverter}}"/>
+                            <TextBlock Text="{Binding Bookmarks.Count, StringFormat='{}{0} bookmarks saved'}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource BrushTextMuted}"
+                                       Visibility="{Binding IsBookmarksOpen, Converter={StaticResource BoolToVisConverter}}"/>
+                            <TextBlock Text="Double click to play"
+                                       FontSize="11"
+                                       Foreground="{StaticResource BrushTextMuted}"
+                                       HorizontalAlignment="Right"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

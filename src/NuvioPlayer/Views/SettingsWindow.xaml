@@ -1,0 +1,345 @@
+<Window x:Class="NuvioPlayer.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:NuvioPlayer.ViewModels"
+        mc:Ignorable="d"
+        Title="Settings — Nuvio Player"
+        Width="780" Height="600"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+
+    <Border Background="{StaticResource BrushSurfaceElevated}"
+            BorderBrush="{StaticResource BrushBorder}"
+            BorderThickness="1"
+            CornerRadius="10">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="30" ShadowDepth="4" Opacity="0.55" Color="#000000"/>
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <!-- TitleBar -->
+                <RowDefinition Height="46"/>
+                <!-- Main Body (Sidebar + Content) -->
+                <RowDefinition Height="*"/>
+                <!-- Footer Action Bar -->
+                <RowDefinition Height="56"/>
+            </Grid.RowDefinitions>
+
+            <!-- Window Header / TitleBar -->
+            <Border Grid.Row="0"
+                    Background="{StaticResource BrushSurface}"
+                    BorderBrush="{StaticResource BrushBorder}"
+                    BorderThickness="0,0,0,1"
+                    CornerRadius="10,10,0,0"
+                    MouseDown="OnTitleBarMouseDown">
+                <Grid Margin="18,0,12,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Viewbox Width="16" Height="16" Margin="0,0,10,0">
+                            <Path Fill="{StaticResource BrushAccent}" Data="{StaticResource IconSettings}"/>
+                        </Viewbox>
+                        <TextBlock Text="Settings"
+                                   FontWeight="SemiBold"
+                                   FontSize="14"
+                                   Foreground="{StaticResource BrushTextPrimary}"/>
+                    </StackPanel>
+
+                    <Button HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource TitleBarButtonStyle}"
+                            Command="{Binding CancelCommand}"
+                            ToolTip="Close">
+                        <Viewbox Width="10" Height="10">
+                            <Path Fill="{StaticResource BrushTextSecondary}" Data="{StaticResource IconWindowClose}"/>
+                        </Viewbox>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- Main Content Area: Left Navigation Tabs + Right Section Panels -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <!-- Left Navigation Categories -->
+                    <ColumnDefinition Width="180"/>
+                    <!-- Right Content Area -->
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Left Navigation Panel -->
+                <Border Grid.Column="0"
+                        Background="{StaticResource BrushSurface}"
+                        BorderBrush="{StaticResource BrushBorder}"
+                        BorderThickness="0,0,1,0"
+                        Padding="8,12">
+                    <StackPanel>
+                        <RadioButton Content="General" IsChecked="True" Tag="0" Style="{StaticResource SettingsNavRadioButton}" Checked="OnNavChecked"/>
+                        <RadioButton Content="Playback" Tag="1" Style="{StaticResource SettingsNavRadioButton}" Checked="OnNavChecked"/>
+                        <RadioButton Content="Interface" Tag="2" Style="{StaticResource SettingsNavRadioButton}" Checked="OnNavChecked"/>
+                        <RadioButton Content="Subtitles" Tag="3" Style="{StaticResource SettingsNavRadioButton}" Checked="OnNavChecked"/>
+                        <RadioButton Content="Audio" Tag="4" Style="{StaticResource SettingsNavRadioButton}" Checked="OnNavChecked"/>
+                        <RadioButton Content="Keyboard" Tag="5" Style="{StaticResource SettingsNavRadioButton}" Checked="OnNavChecked"/>
+                        <RadioButton Content="Files" Tag="6" Style="{StaticResource SettingsNavRadioButton}" Checked="OnNavChecked"/>
+                        <RadioButton Content="Privacy" Tag="7" Style="{StaticResource SettingsNavRadioButton}" Checked="OnNavChecked"/>
+                        <RadioButton Content="Advanced" Tag="8" Style="{StaticResource SettingsNavRadioButton}" Checked="OnNavChecked"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Right Settings Panels Container -->
+                <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="24,18">
+                    <!-- Tab Panels Switcher -->
+                    <Grid>
+                        <!-- 0: General -->
+                        <StackPanel x:Name="PanelGeneral" Visibility="Visible">
+                            <TextBlock Text="General Settings" FontSize="16" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
+
+                            <CheckBox Content="Resume playback from last position"
+                                      IsChecked="{Binding ResumePlayback}"
+                                      Style="{StaticResource ModernCheckBox}"
+                                      Margin="0,0,0,14"/>
+                            <TextBlock Text="Prompts to resume playback when re-opening a previously watched media file."
+                                       FontSize="11" Foreground="{StaticResource BrushTextTertiary}" Margin="26,-8,0,16"/>
+
+                            <CheckBox Content="Remember window size on exit"
+                                      IsChecked="{Binding RememberWindowSize}"
+                                      Style="{StaticResource ModernCheckBox}"
+                                      Margin="0,0,0,14"/>
+
+                            <CheckBox Content="Remember window position on exit"
+                                      IsChecked="{Binding RememberWindowPosition}"
+                                      Style="{StaticResource ModernCheckBox}"
+                                      Margin="0,0,0,16"/>
+                        </StackPanel>
+
+                        <!-- 1: Playback -->
+                        <StackPanel x:Name="PanelPlayback" Visibility="Collapsed">
+                            <TextBlock Text="Playback Settings" FontSize="16" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
+
+                            <TextBlock Text="Default Playback Speed" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
+                            <ComboBox SelectedValue="{Binding DefaultPlaybackSpeed}"
+                                      SelectedValuePath="Tag"
+                                      Width="160" HorizontalAlignment="Left"
+                                      Style="{StaticResource ModernComboBox}"
+                                      Margin="0,0,0,16">
+                                <ComboBoxItem Content="0.5x" Tag="0.5"/>
+                                <ComboBoxItem Content="0.75x" Tag="0.75"/>
+                                <ComboBoxItem Content="1.0x (Normal)" Tag="1.0" IsSelected="True"/>
+                                <ComboBoxItem Content="1.25x" Tag="1.25"/>
+                                <ComboBoxItem Content="1.5x" Tag="1.5"/>
+                                <ComboBoxItem Content="2.0x" Tag="2.0"/>
+                            </ComboBox>
+
+                            <TextBlock Text="Short Seek Duration (seconds)" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
+                            <TextBox Text="{Binding ShortSeekSeconds}" Width="120" HorizontalAlignment="Left" Style="{StaticResource ModernTextBox}" Margin="0,0,0,16"/>
+
+                            <TextBlock Text="Long Seek Duration (seconds)" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
+                            <TextBox Text="{Binding LongSeekSeconds}" Width="120" HorizontalAlignment="Left" Style="{StaticResource ModernTextBox}" Margin="0,0,0,16"/>
+
+                            <CheckBox Content="Auto-play next item in playlist"
+                                      IsChecked="{Binding AutoPlayNext}"
+                                      Style="{StaticResource ModernCheckBox}"
+                                      Margin="0,0,0,16"/>
+                        </StackPanel>
+
+                        <!-- 2: Interface -->
+                        <StackPanel x:Name="PanelInterface" Visibility="Collapsed">
+                            <TextBlock Text="Interface Settings" FontSize="16" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
+
+                            <TextBlock Text="Color Theme" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
+                            <ComboBox SelectedValue="{Binding Theme}"
+                                      SelectedValuePath="Content"
+                                      Width="180" HorizontalAlignment="Left"
+                                      Style="{StaticResource ModernComboBox}"
+                                      Margin="0,0,0,16">
+                                <ComboBoxItem Content="Dark" IsSelected="True"/>
+                                <ComboBoxItem Content="Light"/>
+                                <ComboBoxItem Content="OLED Black"/>
+                            </ComboBox>
+
+                            <TextBlock Text="Auto-hide Controls Delay (seconds)" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
+                            <TextBox Text="{Binding ControlsAutoHideDelaySeconds}" Width="120" HorizontalAlignment="Left" Style="{StaticResource ModernTextBox}" Margin="0,0,0,16"/>
+
+                            <CheckBox Content="Enable smooth micro-animations"
+                                      IsChecked="{Binding EnableAnimations}"
+                                      Style="{StaticResource ModernCheckBox}"
+                                      Margin="0,0,0,16"/>
+                        </StackPanel>
+
+                        <!-- 3: Subtitles -->
+                        <StackPanel x:Name="PanelSubtitles" Visibility="Collapsed">
+                            <TextBlock Text="Subtitle Settings" FontSize="16" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
+
+                            <CheckBox Content="Automatically load subtitles from media directory"
+                                      IsChecked="{Binding AutoLoadSubtitles}"
+                                      Style="{StaticResource ModernCheckBox}"
+                                      Margin="0,0,0,16"/>
+                            <TextBlock Text="Detects matching .srt, .ass, .ssa, .vtt files with same base filename."
+                                       FontSize="11" Foreground="{StaticResource BrushTextTertiary}" Margin="26,-8,0,16"/>
+
+                            <TextBlock Text="Default Subtitle Font Size" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
+                            <TextBox Text="{Binding SubtitleFontSize}" Width="120" HorizontalAlignment="Left" Style="{StaticResource ModernTextBox}" Margin="0,0,0,16"/>
+
+                            <TextBlock Text="Subtitle Color" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
+                            <TextBox Text="{Binding SubtitleColor}" Width="120" HorizontalAlignment="Left" Style="{StaticResource ModernTextBox}" Margin="0,0,0,16"/>
+                        </StackPanel>
+
+                        <!-- 4: Audio -->
+                        <StackPanel x:Name="PanelAudio" Visibility="Collapsed">
+                            <TextBlock Text="Audio Settings" FontSize="16" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
+
+                            <TextBlock Text="Default Volume (%)" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
+                            <Slider Minimum="0" Maximum="100" Value="{Binding DefaultVolume}" Width="200" HorizontalAlignment="Left" Style="{StaticResource ModernVolumeSlider}" Margin="0,0,0,6"/>
+                            <TextBlock Text="{Binding DefaultVolume, StringFormat='{}{0}%'}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}" Margin="0,0,0,16"/>
+                        </StackPanel>
+
+                        <!-- 5: Keyboard Shortcuts Reference -->
+                        <StackPanel x:Name="PanelKeyboard" Visibility="Collapsed">
+                            <TextBlock Text="Keyboard Shortcuts" FontSize="16" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
+
+                            <Border Background="{StaticResource BrushSurface}"
+                                    BorderBrush="{StaticResource BrushBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Padding="8">
+                                <ItemsControl ItemsSource="{Binding Shortcuts}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="6,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding Action}" Foreground="{StaticResource BrushTextPrimary}" VerticalAlignment="Center"/>
+                                                <Border Grid.Column="1" Background="{StaticResource BrushSurfaceActive}" CornerRadius="4" Padding="6,2">
+                                                    <TextBlock Text="{Binding Shortcut}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource BrushAccent}"/>
+                                                </Border>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- 6: Files & Associations -->
+                        <StackPanel x:Name="PanelFiles" Visibility="Collapsed">
+                            <TextBlock Text="Files &amp; Directories" FontSize="16" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
+
+                            <TextBlock Text="Screenshot Save Location" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
+                            <Grid Margin="0,0,0,16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" Text="{Binding ScreenshotDirectory}" Style="{StaticResource ModernTextBox}" Margin="0,0,8,0"/>
+                                <Button Grid.Column="1" Content="Browse..." Style="{StaticResource SecondaryButton}" Command="{Binding BrowseScreenshotDirectoryCommand}"/>
+                            </Grid>
+
+                            <TextBlock Text="Supported File Extensions" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
+                            <Border Background="{StaticResource BrushSurface}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="6" Padding="10">
+                                <ItemsControl ItemsSource="{Binding SupportedExtensions}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{StaticResource BrushSurfaceActive}" CornerRadius="4" Padding="6,3" Margin="3">
+                                                <TextBlock Text="{Binding}" FontSize="11" Foreground="{StaticResource BrushTextPrimary}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+
+                            <TextBlock Text="Windows File Associations" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,16,0,6"/>
+                            <TextBlock Text="Associate supported media formats with Nuvio Player on this Windows user account." FontSize="11" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <Button Content="Register All Formats" Style="{StaticResource PrimaryButton}" Padding="12,6" Margin="0,0,8,0" Command="{Binding RegisterAllAssociationsCommand}"/>
+                                <Button Content="Restore Defaults / Unregister" Style="{StaticResource SecondaryButton}" Padding="12,6" Command="{Binding UnregisterAllAssociationsCommand}"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding FileAssociationStatusMessage}" FontSize="11" Foreground="{StaticResource BrushAccent}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <!-- 7: Privacy -->
+                        <StackPanel x:Name="PanelPrivacy" Visibility="Collapsed">
+                            <TextBlock Text="Privacy &amp; Data Management" FontSize="16" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
+
+                            <CheckBox Content="Record playback history and resume points"
+                                      IsChecked="{Binding RecordPlaybackHistory}"
+                                      Style="{StaticResource ModernCheckBox}"
+                                      Margin="0,0,0,16"/>
+
+                            <TextBlock Text="Clean Application Data" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}" Margin="0,8,0,8"/>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <Button Content="Clear History" Style="{StaticResource SecondaryButton}" Command="{Binding ClearHistoryCommand}" Margin="0,0,8,0"/>
+                                <Button Content="Clear Bookmarks" Style="{StaticResource SecondaryButton}" Command="{Binding ClearBookmarksCommand}" Margin="0,0,8,0"/>
+                                <Button Content="Clear Playlists" Style="{StaticResource SecondaryButton}" Command="{Binding ClearPlaylistsCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- 8: Advanced -->
+                        <StackPanel x:Name="PanelAdvanced" Visibility="Collapsed">
+                            <TextBlock Text="Advanced Settings" FontSize="16" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,16"/>
+
+                            <CheckBox Content="Hardware-accelerated video decoding (GPU)"
+                                      IsChecked="{Binding HardwareAcceleration}"
+                                      Style="{StaticResource ModernCheckBox}"
+                                      Margin="0,0,0,16"/>
+
+                            <TextBlock Text="Logging Level" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
+                            <ComboBox SelectedValue="{Binding LogLevel}"
+                                      SelectedValuePath="Content"
+                                      Width="160" HorizontalAlignment="Left"
+                                      Style="{StaticResource ModernComboBox}"
+                                      Margin="0,0,0,16">
+                                <ComboBoxItem Content="Information" IsSelected="True"/>
+                                <ComboBoxItem Content="Warning"/>
+                                <ComboBoxItem Content="Error"/>
+                                <ComboBoxItem Content="Debug"/>
+                            </ComboBox>
+
+                            <TextBlock Text="Engine &amp; Runtime Information" FontSize="12" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,6"/>
+                            <Border Background="{StaticResource BrushSurface}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,16">
+                                <TextBlock Text="{Binding MediaEngineInfo}" FontFamily="Consolas, monospace" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" LineHeight="18"/>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- Bottom Action Footer -->
+            <Border Grid.Row="2"
+                    Background="{StaticResource BrushSurface}"
+                    BorderBrush="{StaticResource BrushBorder}"
+                    BorderThickness="0,1,0,0"
+                    CornerRadius="0,0,10,10"
+                    Padding="18,10">
+                <Grid>
+                    <Button HorizontalAlignment="Left"
+                            Content="Reset Defaults"
+                            Style="{StaticResource FlatButton}"
+                            Command="{Binding ResetSettingsCommand}"
+                            Foreground="{StaticResource BrushTextTertiary}"/>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="Cancel"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding CancelCommand}"
+                                Margin="0,0,10,0"/>
+                        <Button Content="Save Changes"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding SaveSettingsCommand}"
+                                Width="110"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

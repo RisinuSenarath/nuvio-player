@@ -1,0 +1,55 @@
+## Build and Publish outputs
+bin/
+obj/
+publish/
+installer/output/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rm/
+[Aa]rm64/
+bld/
+[Bb]in/
+[Oo]bj/
+
+## Visual Studio & Tooling
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.sln.docstates
+*.DotSettings.user
+*.pidb
+*.sublime-workspace
+.idea/
+
+## Caches & User Data
+*.db
+*.db-shm
+*.db-wal
+nuvio.db*
+logs/
+*.log
+
+## Scratch & Temp files
+scratch/
+*.tmp
+*.temp
+Thumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+## Package cache
+packages/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Test results
+TestResults/
+[Tt]est[Rr]esult*/

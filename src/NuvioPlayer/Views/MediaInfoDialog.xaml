@@ -6,6 +6,7 @@
         xmlns:models="clr-namespace:NuvioPlayer.Models"
         mc:Ignorable="d"
         Title="Media Information — Nuvio Player"
+        Icon="/Assets/app.ico"
         Width="520" Height="620"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"

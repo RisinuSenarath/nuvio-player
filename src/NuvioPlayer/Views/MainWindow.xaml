@@ -9,6 +9,7 @@
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
         Title="{Binding WindowTitle}"
+        Icon="/Assets/app.ico"
         Width="1200" Height="720"
         MinWidth="680" MinHeight="440"
         WindowStartupLocation="CenterScreen"
@@ -214,7 +215,7 @@
                                 </MenuItem>
                                 <MenuItem x:Name="VideoTrackMenuItem" Header="Video Track"/>
                                 <Separator/>
-                                <MenuItem Header="Fullscreen" Command="{Binding ToggleFullscreenCommand}" InputGestureText="F"/>
+                                <MenuItem Header="Fullscreen" Command="{Binding ToggleFullscreenCommand}" InputGestureText="Enter / F"/>
                                 <MenuItem Header="Screenshot" Command="{Binding TakeScreenshotCommand}" InputGestureText="F12"/>
                                 <MenuItem Header="Bookmarks" Command="{Binding ToggleBookmarksCommand}"/>
                                 <MenuItem Header="Media Information" Command="{Binding OpenMediaInfoCommand}" InputGestureText="I"/>

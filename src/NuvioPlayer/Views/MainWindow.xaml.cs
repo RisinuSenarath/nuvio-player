@@ -744,6 +744,7 @@ public partial class MainWindow : Window
                 break;
 
             case Key.F:
+            case Key.Return:
                 _viewModel.ToggleFullscreenCommand.Execute(null);
                 handled = true;
                 break;

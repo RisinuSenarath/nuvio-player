@@ -76,6 +76,7 @@ Write-Host "`n[4/4] Building Installer..." -ForegroundColor Yellow
 
 $innoCandidates = @(
     "iscc.exe",
+    "${env:LOCALAPPDATA}\Programs\Inno Setup 6\ISCC.exe",
     "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
     "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
 )

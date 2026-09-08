@@ -6,6 +6,7 @@
         xmlns:vm="clr-namespace:NuvioPlayer.ViewModels"
         mc:Ignorable="d"
         Title="Settings — Nuvio Player"
+        Icon="/Assets/app.ico"
         Width="780" Height="600"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"

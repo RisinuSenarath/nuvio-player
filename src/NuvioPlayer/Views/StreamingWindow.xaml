@@ -7,7 +7,7 @@
         xmlns:models="clr-namespace:NuvioPlayer.Models"
         mc:Ignorable="d"
         Title="Explore &amp; Stream Online — Nuvio Player"
-        Icon="/Assets/app.ico"
+        Icon="pack://application:,,,/NuvioPlayer;component/Assets/app.ico"
         Width="1060" Height="720"
         MinWidth="880" MinHeight="580"
         WindowStartupLocation="CenterOwner"
@@ -15,16 +15,6 @@
         AllowsTransparency="True"
         Background="Transparent"
         ShowInTaskbar="False">
-
-    <Window.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/Resources/Styles.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-            <converters:NullToVisibilityConverter x:Key="NullToVisConverter"/>
-            <converters:NullToVisibilityConverter x:Key="InverseNullToVisConverter" Invert="True"/>
-        </ResourceDictionary>
-    </Window.Resources>
 
     <!-- Outer Window Chrome Border with Drop Shadow -->
     <Border Background="{StaticResource BrushSurfaceElevated}"
@@ -720,7 +710,7 @@
                                VerticalAlignment="Center"/>
                     <TextBlock Text="Nuvio Player • Direct3D11 Hardware Rendering"
                                FontSize="11"
-                               Foreground="{StaticResource BrushTextSubtle}"
+                               Foreground="{StaticResource BrushTextSecondary}"
                                HorizontalAlignment="Right"
                                VerticalAlignment="Center"/>
                 </Grid>

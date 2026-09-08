@@ -12,6 +12,8 @@
     <converters:BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
     <converters:BooleanToVisibilityConverter x:Key="InverseBoolToVisConverter" Invert="True"/>
     <converters:TimeSpanToStringConverter x:Key="TimeSpanToStringConverter"/>
+    <converters:NullToVisibilityConverter x:Key="NullToVisConverter"/>
+    <converters:NullToVisibilityConverter x:Key="InverseNullToVisConverter" Invert="True"/>
 
     <!-- Default Typography -->
     <Style TargetType="{x:Type TextBlock}">

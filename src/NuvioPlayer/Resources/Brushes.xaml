@@ -32,6 +32,7 @@
     <SolidColorBrush x:Key="BrushTextSecondary" Color="{StaticResource ColorTextSecondary}"/>
     <SolidColorBrush x:Key="BrushTextTertiary" Color="{StaticResource ColorTextMuted}"/>
     <SolidColorBrush x:Key="BrushTextMuted" Color="{StaticResource ColorTextMuted}"/>
+    <SolidColorBrush x:Key="BrushTextSubtle" Color="{StaticResource ColorTextMuted}"/>
     <SolidColorBrush x:Key="BrushTextDisabled" Color="{StaticResource ColorTextDisabled}"/>
 
     <!-- Status -->

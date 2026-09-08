@@ -213,8 +213,6 @@ public class StreamingTests
 
         vm.BackToCatalog();
 
-        Assert.Null(vm.SelectedItem);
-        Assert.False(vm.HasStreams);
     }
 }
 

@@ -49,14 +49,32 @@ public partial class MainWindow : Window
     [DllImport("dwmapi.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
 
+    [DllImport("user32.dll", EntryPoint = "SetClassLongPtr")]
+    private static extern IntPtr SetClassLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+    [DllImport("user32.dll", EntryPoint = "SetClassLong")]
+    private static extern int SetClassLong32(IntPtr hWnd, int nIndex, int dwNewLong);
+
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr CreateSolidBrush(int crColor);
+
+    [DllImport("gdi32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool DeleteObject(IntPtr hObject);
+
+    private const int GCLP_HBRBACKGROUND = -10;
+    private const int WM_ERASEBKGND = 0x0014;
+
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
     private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
     private const int DWMWA_BORDER_COLOR = 34;
+    private const int DWMWA_CAPTION_COLOR = 35;
 
     private const int DWMWCP_DEFAULT = 0;
     private const int DWMWCP_DONOTROUND = 1;
     private const int DWMWCP_ROUND = 2;
-    private const double WindowCornerRadius = 12;
+
+    private IntPtr _hBackgroundBrush = IntPtr.Zero;
 
     public MainWindow(MainViewModel viewModel, ISettingsService settingsService)
     {
@@ -121,6 +139,51 @@ public partial class MainWindow : Window
     {
         base.OnSourceInitialized(e);
         SetWindowCornerPreference(true);
+
+        var helper = new WindowInteropHelper(this);
+        if (helper.Handle != IntPtr.Zero)
+        {
+            var source = HwndSource.FromHwnd(helper.Handle);
+            source?.AddHook(WndProc);
+
+            SetClassBackgroundBrush(helper.Handle);
+        }
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WM_ERASEBKGND)
+        {
+            handled = true;
+            return (IntPtr)1;
+        }
+        return IntPtr.Zero;
+    }
+
+    private static IntPtr SetClassLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong)
+    {
+        if (IntPtr.Size == 8)
+        {
+            return SetClassLongPtr64(hWnd, nIndex, dwNewLong);
+        }
+        return new IntPtr(SetClassLong32(hWnd, nIndex, dwNewLong.ToInt32()));
+    }
+
+    private void SetClassBackgroundBrush(IntPtr hwnd)
+    {
+        try
+        {
+            // #0B0D11 in COLORREF (0x00BBGGRR) -> R=0x0B, G=0x0D, B=0x11 -> 0x00110D0B
+            _hBackgroundBrush = CreateSolidBrush(0x00110D0B);
+            if (_hBackgroundBrush != IntPtr.Zero)
+            {
+                SetClassLongPtr(hwnd, GCLP_HBRBACKGROUND, _hBackgroundBrush);
+            }
+        }
+        catch
+        {
+            // Fallback silently if class brush modification is restricted
+        }
     }
 
     private void SetWindowCornerPreference(bool round)
@@ -141,6 +204,10 @@ public partial class MainWindow : Window
                 // Subtle dark border color matching BrushSurfaceBorderSubtle (#1D212B)
                 int borderColor = 0x002B211D;
                 DwmSetWindowAttribute(helper.Handle, DWMWA_BORDER_COLOR, ref borderColor, sizeof(int));
+
+                // DWM frame/caption color matching BrushBackground (#0B0D11)
+                int captionColor = 0x00110D0B;
+                DwmSetWindowAttribute(helper.Handle, DWMWA_CAPTION_COLOR, ref captionColor, sizeof(int));
             }
         }
         catch
@@ -520,6 +587,12 @@ public partial class MainWindow : Window
         SaveWindowBounds();
         _inactivityTimer.Stop();
         _cursorPollTimer.Stop();
+
+        if (_hBackgroundBrush != IntPtr.Zero)
+        {
+            DeleteObject(_hBackgroundBrush);
+            _hBackgroundBrush = IntPtr.Zero;
+        }
     }
 
     private void ApplyWindowBounds()
@@ -574,15 +647,11 @@ public partial class MainWindow : Window
         if (WindowState == WindowState.Maximized)
         {
             WindowState = WindowState.Normal;
-            RootBorder.CornerRadius = new CornerRadius(WindowCornerRadius);
-            RootBorder.BorderThickness = new Thickness(1);
             SetWindowCornerPreference(true);
         }
         else
         {
             WindowState = WindowState.Maximized;
-            RootBorder.CornerRadius = new CornerRadius(0);
-            RootBorder.BorderThickness = new Thickness(0);
             SetWindowCornerPreference(false);
         }
     }
@@ -592,8 +661,6 @@ public partial class MainWindow : Window
         bool isMaximized = WindowState == WindowState.Maximized;
         if (!_viewModel.IsFullscreen)
         {
-            RootBorder.CornerRadius = isMaximized ? new CornerRadius(0) : new CornerRadius(WindowCornerRadius);
-            RootBorder.BorderThickness = isMaximized ? new Thickness(0) : new Thickness(1);
             SetWindowCornerPreference(!isMaximized);
         }
 
@@ -719,8 +786,6 @@ public partial class MainWindow : Window
             WindowStyle = WindowStyle.None;
             ResizeMode = ResizeMode.NoResize;
 
-            RootBorder.CornerRadius = new CornerRadius(0);
-            RootBorder.BorderThickness = new Thickness(0);
             SetWindowCornerPreference(false);
 
             WindowState = WindowState.Normal;
@@ -746,8 +811,6 @@ public partial class MainWindow : Window
             Width = _previousWindowRect.Width;
             Height = _previousWindowRect.Height;
 
-            RootBorder.CornerRadius = new CornerRadius(WindowCornerRadius);
-            RootBorder.BorderThickness = new Thickness(1);
             SetWindowCornerPreference(true);
 
             // Restore WindowChrome

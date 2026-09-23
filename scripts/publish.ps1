@@ -7,6 +7,7 @@
 #>
 
 param(
+    [string]$Version = "0.2.0",
     [switch]$SkipTests,
     [switch]$SelfContained = $false
 )
@@ -102,9 +103,9 @@ foreach ($candidate in $innoCandidates) {
 
 if ($isccPath) {
     Write-Host "Found Inno Setup compiler: $isccPath" -ForegroundColor Gray
-    & $isccPath $InstallerScript
+    & $isccPath "/DMyAppVersion=$Version" $InstallerScript
     if ($LASTEXITCODE -eq 0) {
-        $outputSetup = Join-Path $RootDir "installer\output\NuvioPlayer-0.1.0-Setup.exe"
+        $outputSetup = Join-Path $RootDir "installer\output\NuvioPlayer-$Version-Setup.exe"
         Write-Host "`nSUCCESS: Installer created at $outputSetup" -ForegroundColor Green
     } else {
         Write-Warning "Inno Setup compilation exited with code $LASTEXITCODE."

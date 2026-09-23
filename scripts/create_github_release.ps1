@@ -1,7 +1,7 @@
 param(
-    [string]$TagName = "v0.1.0",
-    [string]$ReleaseName = "Nuvio Player v0.1.0",
-    [string]$InstallerPath = "installer\output\NuvioPlayer-0.1.0-Setup.exe"
+    [string]$TagName = "v0.2.0",
+    [string]$ReleaseName = "Nuvio Player v0.2.0",
+    [string]$InstallerPath = "installer\output\NuvioPlayer-0.2.0-Setup.exe"
 )
 
 $ErrorActionPreference = "Stop"
@@ -48,11 +48,17 @@ $headers = @{
 
 # Release body markdown
 $releaseBody = @"
-# Nuvio Player v0.1.0
+# Nuvio Player v0.2.0
 
-A modern, high-performance desktop video player for Windows built with WPF, .NET 8, and LibVLC (Hardware-accelerated Direct3D11).
+A modern, high-performance desktop video player for Windows built with WPF, .NET 8, LibVLC (Hardware-accelerated Direct3D11), and Microsoft WebView2.
 
-### Key Features
+### What's New in v0.2.0
+- **Integrated Web Streaming:** Built-in streaming portal powered by Microsoft Edge WebView2 with intelligent pop-up/redirect blocking and ad neutralization.
+- **Multi-Server Provider Switching:** Instant switching between stream servers and mirror providers directly within the player.
+- **Auto-Hiding Stream Control Bar:** Dynamic hover-activated top navigation bar with stream server selection and one-click exit back to the media catalog.
+- **Airspace Conflict Resolution:** Optimized WPF visual tree preventing WebView2 airspace flickering and ensuring reliable cursor hover detection.
+
+### Core Player Features
 - **Fluid & Responsive UI:** Modern dark glassmorphism design system with rounded corners, frameless window resizing, and custom controls.
 - **Hardware-Accelerated Playback:** Zero-copy Direct3D11 rendering powered by LibVLC, supporting 4K HDR, AV1, HEVC, H.264, VP9, and all major video containers (.mp4, .mkv, .avi, .mov, .webm, .ts, etc.).
 - **Audio Boost:** High-fidelity audio playback with volume boosting up to 150%.
@@ -66,7 +72,7 @@ A modern, high-performance desktop video player for Windows built with WPF, .NET
 - **Seamless Shell Integration:** Windows file association support, custom app branding icon, and single-instance command-line playback.
 
 ### Installation
-Download and run **`NuvioPlayer-0.1.0-Setup.exe`** below to install Nuvio Player on Windows 10 or 11 (x64).
+Download and run **`NuvioPlayer-0.2.0-Setup.exe`** below to install Nuvio Player on Windows 10 or 11 (x64).
 "@
 
 # 1. Create or Get Release
